@@ -3,138 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | LOCAL v79</title>
+    <title>ONEN STUDIO | LOCAL v80</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #080808; color: white; overflow: hidden; }
         .label { font-size: 9px; font-weight: 800; color: #444; text-transform: uppercase; letter-spacing: 2px; display: block; }
-        .glass-input { background: #000; border: 1px solid #222; color: white; border-radius: 12px; padding: 12px; font-size: 12px; width: 100%; outline: none; transition: 0.3s; }
+        .glass-input { background: #000; border: 1px solid #222; color: white; border-radius: 12px; padding: 12px; font-size: 12px; width: 100%; outline: none; }
         .glass-input:focus { border-color: #F59E0B; }
-        .ship-card { width: 100%; padding: 14px; background: #111; border: 1px solid #1a1a1a; border-radius: 14px; text-align: left; font-size: 11px; font-weight: 800; transition: 0.2s; }
-        .ship-card:hover { border-color: white; }
-        .memo-card { width: 210mm; min-height: 148.5mm; background: white; color: black; transition: 0.5s cubic-bezier(0.2, 1, 0.2, 1); transform: scale(0.95); opacity: 0.4; cursor: pointer; }
-        .memo-card.active { transform: scale(1); opacity: 1; border: 6px solid #F59E0B; box-shadow: 0 40px 100px rgba(0,0,0,0.5); }
+        .ship-card { width: 100%; padding: 14px; background: #111; border: 1px solid #1a1a1a; border-radius: 14px; text-align: left; font-size: 11px; font-weight: 800; }
+        .memo-card { width: 210mm; min-height: 148.5mm; background: white; color: black; transition: 0.4s; transform: scale(0.95); opacity: 0.4; cursor: pointer; }
+        .memo-card.active { transform: scale(1); opacity: 1; border: 6px solid #F59E0B; }
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
-        @media print { .no-print { display: none !important; } .memo-card { transform: scale(1) !important; opacity: 1 !important; border: none !important; box-shadow: none !important; margin: 0 !important; } }
+        @media print { .no-print { display: none !important; } .memo-card { transform: scale(1)!important; opacity: 1!important; border: none!important; } }
     </style>
 </head>
 <body>
-    <div class="flex h-screen overflow-hidden">
-        
+    <div class="flex h-screen">
         <aside class="w-80 bg-[#0C0C0C] border-r border-white/5 p-6 flex flex-col gap-6 overflow-y-auto custom-scroll">
-            <div class="brand">
-                <h1 class="text-3xl font-black italic tracking-tighter">ONEN<span class="text-amber-500">.</span></h1>
-                <p class="text-[8px] uppercase tracking-[0.4em] text-white/20">Studio Architect v79</p>
-            </div>
-
+            <h1 class="text-3xl font-black italic tracking-tighter">ONEN<span class="text-amber-500">.</span></h1>
             <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                <label class="label text-amber-500 mb-2">Product Registry</label>
-                <input id="in-sku" class="glass-input mb-2" placeholder="SKU (e.g. 101)">
+                <label class="label text-amber-500 mb-2">Inventory</label>
+                <input id="in-sku" class="glass-input mb-2" placeholder="SKU">
                 <input id="in-name" class="glass-input mb-2" placeholder="Product Name">
                 <input id="in-price" type="number" class="glass-input mb-2" placeholder="Price">
                 <div class="grid grid-cols-2 gap-2 mb-3">
-                    <input id="in-cols" class="glass-input text-[10px]" placeholder="Black, Navy">
-                    <input id="in-sizes" class="glass-input text-[10px]" placeholder="M, L, XL">
+                    <input id="in-cols" class="glass-input text-[10px]" placeholder="Colors">
+                    <input id="in-sizes" class="glass-input text-[10px]" placeholder="Sizes">
                 </div>
-                <button onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[10px] rounded-xl hover:bg-amber-500 uppercase transition-all">Save Product</button>
+                <button onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[10px] rounded-xl hover:bg-amber-500 uppercase">Save</button>
             </div>
-
-            <div class="flex-grow">
-                <div class="flex justify-between items-center mb-4">
-                    <label class="label">Stock Index</label>
-                    <button onclick="Inventory.exportCSV()" class="text-[8px] opacity-30 hover:opacity-100 border border-white/10 px-2 py-1 rounded">CSV</button>
-                </div>
-                <div id="inventory-list" class="space-y-2"></div>
-            </div>
+            <div id="inventory-list" class="space-y-2"></div>
         </aside>
 
-        <main id="viewport" class="flex-grow bg-black p-12 overflow-y-auto custom-scroll flex flex-col items-center gap-12">
-            <div id="pdf-container" class="flex flex-col gap-12"></div>
+        <main id="viewport" class="flex-grow bg-black p-12 overflow-y-auto custom-scroll flex flex-col items-center">
+            <div id="pdf-container" class="space-y-12"></div>
         </main>
 
-        <aside class="w-72 bg-[#0C0C0C] border-l border-white/5 p-6 flex flex-col gap-6 overflow-y-auto custom-scroll">
-            <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase hover:bg-amber-500 transition-all">+ New Memo</button>
-            
+        <aside class="w-72 bg-[#0C0C0C] border-l border-white/5 p-6 flex flex-col gap-6">
+            <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase">+ New Memo</button>
             <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
-                <label class="label text-amber-500 mb-2">Instant Parser</label>
-                <textarea id="magic-box" class="w-full bg-transparent text-[11px] h-32 outline-none resize-none placeholder-white/10 text-white" placeholder="Paste order text here..."></textarea>
-                <button onclick="Core.processLocal()" class="w-full mt-3 py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl hover:scale-[1.02] transition-all">PARSE ORDER</button>
+                <label class="label text-amber-500 mb-2">Magic Box (Instant)</label>
+                <textarea id="magic-box" class="w-full bg-transparent text-[11px] h-32 outline-none resize-none placeholder-white/20 text-white" placeholder="Name: Ariful&#10;Phone: 017...&#10;Mirpur, Dhaka"></textarea>
+                <button onclick="Core.processLocal()" class="w-full mt-3 py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl">PROCESS</button>
             </div>
-
-            <label class="label">Shipping</label>
             <div class="space-y-2">
-                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="ship-card">Inside Dhaka <span class="float-right text-white/20">60</span></button>
-                <button onclick="Core.setShipping(70, 'Suburban')" class="ship-card text-amber-500">Suburban <span class="float-right text-white/20">70</span></button>
-                <button onclick="Core.setShipping(120, 'Outside')" class="ship-card text-red-500">Outside <span class="float-right text-white/20">120</span></button>
+                <label class="label">Shipping</label>
+                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="ship-card">Dhaka 60</button>
+                <button onclick="Core.setShipping(70, 'Suburban')" class="ship-card text-amber-500">Suburban 70</button>
+                <button onclick="Core.setShipping(120, 'Outside')" class="ship-card text-red-500">Outside 120</button>
             </div>
-
-            <label class="label">Current Batch</label>
-            <div id="batch-list" class="space-y-2 max-h-40 overflow-y-auto custom-scroll"></div>
-
-            <button onclick="Core.exportPDF()" class="mt-auto w-full py-4 border border-white/10 text-white font-black text-[11px] rounded-2xl hover:bg-white hover:text-black transition-all uppercase">Export Batch PDF</button>
+            <div id="batch-list" class="space-y-2 overflow-y-auto max-h-40"></div>
+            <button onclick="Core.exportPDF()" class="mt-auto w-full py-4 border border-white/10 text-white font-black text-[11px] rounded-2xl hover:bg-white hover:text-black uppercase">Export PDF</button>
         </aside>
     </div>
 
     <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-50">
-        <div class="bg-[#111] border border-white/10 p-10 rounded-[40px] w-80 shadow-2xl">
-            <h2 id="m-title" class="text-2xl font-black italic text-white mb-1 uppercase"></h2>
-            <p id="m-sku" class="text-[10px] text-amber-500 font-mono tracking-widest uppercase mb-8"></p>
+        <div class="bg-[#111] border border-white/10 p-10 rounded-[40px] w-80">
+            <h2 id="m-title" class="text-2xl font-black italic text-white mb-6 uppercase text-center"></h2>
             <div class="space-y-5">
                 <select id="m-col" class="glass-input"></select>
                 <select id="m-sz" class="glass-input"></select>
                 <input id="m-qty" type="number" value="1" min="1" class="glass-input text-center text-xl font-bold">
-                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black uppercase text-[11px] rounded-2xl">Confirm Add</button>
-                <button onclick="UI.toggleModal(false)" class="w-full text-[10px] text-white/20 mt-2 uppercase">Close</button>
+                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl">ADD ITEM</button>
+                <button onclick="UI.toggleModal(false)" class="w-full text-[10px] text-white/20 mt-2 uppercase">Cancel</button>
             </div>
         </div>
     </div>
 
     <template id="memo-tpl">
         <div class="memo-card p-[15mm] flex flex-col relative" onclick="Core.selectMemo(this)">
-            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-6 right-6 text-red-400 opacity-20 hover:opacity-100 transition-opacity">
-                <svg width="20" height="20" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
-            </button>
-            <div class="flex justify-between items-start border-b-[8px] border-black pb-5 mb-8">
+            <div class="flex justify-between border-b-[8px] border-black pb-4 mb-6">
                 <div>
-                    <h2 class="text-7xl font-black italic tracking-tighter leading-none">ONEN</h2>
-                    <p class="text-[10px] font-bold tracking-[0.4em] uppercase mt-2">Modern Essentials for the Bold</p>
+                    <h2 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h2>
+                    <p class="text-[10px] font-bold tracking-[0.3em] uppercase mt-1">Modern Essentials for the Bold</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-4xl font-black m-id">#0000</div>
-                    <div class="text-[11px] font-bold m-date text-slate-400 font-mono"></div>
+                    <div class="text-3xl font-black m-id">#0000</div>
+                    <div class="text-[10px] font-bold m-date text-slate-400 font-mono"></div>
                 </div>
             </div>
-            <div class="grid grid-cols-2 gap-10 mb-10">
+            <div class="grid grid-cols-2 gap-8 mb-8">
                 <div>
-                    <input class="m-name w-full border-none font-black text-3xl uppercase p-0 focus:ring-0 placeholder-gray-200" placeholder="CUSTOMER NAME">
-                    <input class="m-phone w-full border-none font-bold text-xl p-0 focus:ring-0 placeholder-gray-200 mt-1" placeholder="01XXXXXXXXX">
-                    <textarea class="m-addr w-full border-none h-20 text-[13px] p-0 mt-3 resize-none font-medium focus:ring-0 placeholder-gray-200" placeholder="SHIPPING ADDRESS"></textarea>
+                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0 focus:ring-0" placeholder="NAME">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="01XXXXXXXXX">
+                    <textarea class="m-addr w-full border-none h-16 text-[12px] p-0 mt-2 resize-none font-medium focus:ring-0" placeholder="ADDRESS"></textarea>
                 </div>
-                <div class="text-right"><span class="m-tag border-[5px] border-black px-6 py-2 font-black uppercase italic text-sm">Inside Dhaka</span></div>
+                <div class="text-right"><span class="m-tag border-[4px] border-black px-4 py-1 font-black uppercase italic text-xs">Inside Dhaka</span></div>
             </div>
             <div class="flex-grow">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b-[3px] border-black text-[10px] font-black uppercase">
-                            <th class="text-left py-2">SL</th><th class="text-left">Item Description</th><th class="text-center">Attr</th><th class="text-center">Qty</th><th class="text-right">Total</th>
-                        </tr>
+                        <tr class="border-b-2 border-black font-black text-[10px] uppercase"><th class="text-left py-2">SL</th><th class="text-left">Item</th><th class="text-center">Attr</th><th class="text-center">Qty</th><th class="text-right">Price</th></tr>
                     </thead>
                     <tbody class="m-body font-bold italic"></tbody>
                 </table>
             </div>
-            <div class="mt-12 flex justify-between items-end border-t border-slate-100 pt-8">
-                <div class="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-                    <p class="text-black font-black mb-1">Studio Policies:</p>
-                    <p>• 7-Day Exchange Policy</p>
-                    <p>• Tags must remain intact & unwashed</p>
-                    <p>• onenwear.com | @onenstudio</p>
-                </div>
-                <div class="w-72 text-right font-black">
-                    <div class="flex justify-between text-slate-400 text-[13px] mb-1"><span>DELIVERY CHARGE</span><span class="m-s">60</span></div>
-                    <div class="flex justify-between border-t-[8px] border-black text-[54px] pt-1 leading-none"><span>DUE</span><span class="m-t">0</span></div>
+            <div class="mt-10 flex justify-between items-end border-t border-slate-100 pt-6">
+                <div class="text-[8px] font-bold text-slate-400 uppercase"><p class="text-black font-black mb-1">Policies:</p><p>• 7-Day Exchange</p><p>• Tags Intact</p></div>
+                <div class="w-56 text-right font-black">
+                    <div class="flex justify-between text-slate-400 text-[11px]"><span>SHIP</span><span class="m-s">60</span></div>
+                    <div class="flex justify-between border-t-4 border-black text-4xl pt-1"><span>DUE</span><span class="m-t">0</span></div>
                 </div>
             </div>
         </div>
@@ -142,7 +113,7 @@
 
     <script>
         const Inventory = {
-            data: JSON.parse(localStorage.getItem('ONEN_INV_V79')) || [],
+            data: JSON.parse(localStorage.getItem('ONEN_INV_V80')) || [],
             save() {
                 const sku = document.getElementById('in-sku').value.trim().toUpperCase();
                 if(!sku) return;
@@ -150,23 +121,13 @@
                 this.data.push({
                     sku, name: document.getElementById('in-name').value,
                     price: parseFloat(document.getElementById('in-price').value) || 0,
-                    cols: document.getElementById('in-cols').value.split(',').map(s => s.trim()),
-                    sizes: document.getElementById('in-sizes').value.split(',').map(s => s.trim())
+                    cols: document.getElementById('in-cols').value.split(','),
+                    sizes: document.getElementById('in-sizes').value.split(',')
                 });
-                localStorage.setItem('ONEN_INV_V79', JSON.stringify(this.data));
+                localStorage.setItem('ONEN_INV_V80', JSON.stringify(this.data));
                 this.render();
-                this.clear();
             },
-            delete(sku) { if(confirm('Delete?')) { this.data = this.data.filter(i => i.sku !== sku); localStorage.setItem('ONEN_INV_V79', JSON.stringify(this.data)); this.render(); } },
-            edit(sku) {
-                const p = this.data.find(i => i.sku === sku);
-                document.getElementById('in-sku').value = p.sku;
-                document.getElementById('in-name').value = p.name;
-                document.getElementById('in-price').value = p.price;
-                document.getElementById('in-cols').value = p.cols.join(', ');
-                document.getElementById('in-sizes').value = p.sizes.join(', ');
-            },
-            clear() { ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = ''); },
+            delete(sku) { this.data = this.data.filter(i => i.sku !== sku); localStorage.setItem('ONEN_INV_V80', JSON.stringify(this.data)); this.render(); },
             render() {
                 document.getElementById('inventory-list').innerHTML = this.data.map(p => `
                     <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center group">
@@ -174,22 +135,13 @@
                             <div class="text-[8px] text-amber-500 font-mono">[${p.sku}]</div>
                             <div class="text-xs font-bold uppercase">${p.name}</div>
                         </div>
-                        <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition">
-                            <button onclick="Inventory.edit('${p.sku}')" class="text-blue-400 text-[10px]">Edit</button>
-                            <button onclick="Inventory.delete('${p.sku}')" class="text-red-400 text-[10px]">Del</button>
-                        </div>
+                        <button onclick="Inventory.delete('${p.sku}')" class="text-red-400 text-[10px] opacity-0 group-hover:opacity-100">DEL</button>
                     </div>`).join('');
-            },
-            exportCSV() {
-                let csv = "SKU,Name,Price,Colors,Sizes\n";
-                this.data.forEach(p => csv += `${p.sku},${p.name},${p.price},"${p.cols.join('/')}","${p.sizes.join('/')}"\n`);
-                const blob = new Blob([csv], { type: 'text/csv' });
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'ONEN_Stock.csv'; a.click();
             }
         };
 
         const Core = {
-            seq: 3800, activeIdx: 0, pending: null,
+            seq: 4000, activeIdx: 0, pending: null,
             init() { Inventory.render(); this.createNewMemo(); },
             createNewMemo() {
                 const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
@@ -206,45 +158,36 @@
                 this.updateBatchList();
             },
             getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
-            deleteMemo(e, btn) {
-                e.stopPropagation();
-                if(confirm('Delete this memo?')) {
-                    btn.closest('.memo-card').remove();
-                    const cards = document.querySelectorAll('.memo-card');
-                    if(cards.length === 0) this.createNewMemo();
-                    else this.selectMemo(cards[0]);
-                }
-            },
             processLocal() {
-                const raw = document.getElementById('magic-box').value;
+                const box = document.getElementById('magic-box');
+                let raw = box.value;
                 if(!raw) return;
+
+                const trans = {'নাম':'Name','ঠিকানা':'Address','ফোন':'Phone','ঢাকা':'Dhaka','মিরপুর':'Mirpur','উত্তরা':'Uttara','সাভার':'Savar','গাজীপুর':'Gazipur'};
+                Object.keys(trans).forEach(k => { raw = raw.replace(new RegExp(k,'g'), trans[k]); });
+                raw = raw.replace(/[০-৯]/g, d => ({'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'}[d]));
+
                 const phone = (raw.match(/01[3-9]\d{8}/) || [""])[0];
-                let name = raw.split('\n')[0].replace(phone, '').trim();
-                let address = raw.replace(name, '').replace(phone, '').trim();
-                
-                let foundSku = "";
-                Inventory.data.forEach(item => { if(raw.toUpperCase().includes(item.sku.toUpperCase())) foundSku = item.sku; });
+                const lines = raw.split('\n');
+                let name = lines[0].replace(phone,'').replace(/[:,-]/g,'').trim();
+                let address = lines.slice(1).join(', ').replace(phone,'').trim();
 
                 const active = this.getActive();
                 active.querySelector('.m-name').value = name.toUpperCase();
                 active.querySelector('.m-phone').value = phone;
                 active.querySelector('.m-addr').value = address;
 
-                // Simple Zone Detection
-                const suburban = ['GAZIPUR', 'SAVAR', 'NARAYANGANJ', 'KERANIGANJ'];
-                const dhaka = ['MIRPUR', 'UTTARA', 'DHAKA', 'DHANMONDI', 'GULSHAN', 'BANANI'];
                 const up = raw.toUpperCase();
-                if(suburban.some(k => up.includes(k))) this.setShipping(70, 'Suburban');
-                else if(dhaka.some(k => up.includes(k))) this.setShipping(60, 'Inside Dhaka');
-                else this.setShipping(120, 'Outside Dhaka');
+                if(['GAZIPUR','SAVAR','NARAYANGANJ'].some(k=>up.includes(k))) this.setShipping(70,'Suburban');
+                else if(['MIRPUR','UTTARA','DHAKA','DHANMONDI'].some(k=>up.includes(k))) this.setShipping(60,'Inside Dhaka');
+                else this.setShipping(120,'Outside Dhaka');
 
-                if(foundSku) this.prepItem(foundSku);
-                document.getElementById('magic-box').value = "";
+                Inventory.data.forEach(item => { if(raw.toUpperCase().includes(item.sku.toUpperCase())) this.prepItem(item.sku); });
+                box.value = "";
             },
             prepItem(sku) {
                 this.pending = Inventory.data.find(i => i.sku === sku);
                 document.getElementById('m-title').innerText = this.pending.name;
-                document.getElementById('m-sku').innerText = sku;
                 document.getElementById('m-col').innerHTML = this.pending.cols.map(c => `<option>${c}</option>`).join('');
                 document.getElementById('m-sz').innerHTML = this.pending.sizes.map(s => `<option>${s}</option>`).join('');
                 UI.toggleModal(true);
@@ -254,10 +197,9 @@
                 const col = document.getElementById('m-col').value;
                 const sz = document.getElementById('m-sz').value;
                 const qty = document.getElementById('m-qty').value;
-                const row = `<tr class="border-b border-gray-100"><td class="py-4 text-slate-300"></td><td class="py-4">${this.pending.name} <span class="text-[9px] uppercase font-mono text-slate-400">[${this.pending.sku}]</span></td><td class="text-center">${col}/${sz}</td><td class="text-center">${qty}</td><td class="text-right font-black"><span class="r-p">${this.pending.price * qty}</span></td></tr>`;
+                const row = `<tr class="border-b border-gray-100"><td class="py-3 text-slate-400"></td><td class="py-3">${this.pending.name} <span class="text-[9px] font-mono text-slate-400">[${this.pending.sku}]</span></td><td class="text-center">${col}/${sz}</td><td class="text-center">${qty}</td><td class="text-right font-black"><span class="r-p">${this.pending.price * qty}</span></td></tr>`;
                 active.querySelector('.m-body').insertAdjacentHTML('beforeend', row);
-                this.recalc();
-                UI.toggleModal(false);
+                this.recalc(); UI.toggleModal(false);
             },
             setShipping(v, l) {
                 const a = this.getActive();
@@ -266,11 +208,10 @@
                 this.recalc();
             },
             recalc() {
-                const a = this.getActive();
-                let total = 0;
+                const a = this.getActive(); let total = 0;
                 a.querySelectorAll('.r-p').forEach(p => total += parseFloat(p.innerText));
                 a.querySelector('.m-t').innerText = total + parseFloat(a.querySelector('.m-s').innerText);
-                a.querySelectorAll('.m-body tr').forEach((tr, i) => tr.cells[0].innerText = i + 1);
+                a.querySelectorAll('.m-body tr').forEach((tr, i) => tr.cells[0].innerText = i+1);
             },
             updateBatchList() {
                 document.getElementById('batch-list').innerHTML = Array.from(document.querySelectorAll('.memo-card')).map((c, i) => `
