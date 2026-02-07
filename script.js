@@ -1,69 +1,70 @@
-const Core = {
-    seq: 3700, activeIdx: 0, pending: null,
+processLocal() {
+    const box = document.getElementById('magic-box');
+    let raw = box.value;
+    if(!raw) return;
+
+    // 1. Map for Bangla to English Translation
+    const translationMap = {
+        'নাম': 'Name', 'ঠিকানা': 'Address', 'ফোন': 'Phone',
+        'ঢাকা': 'Dhaka', 'উত্তরা': 'Uttara', 'মিরপুর': 'Mirpur',
+        'গাজীপুর': 'Gazipur', 'সাভার': 'Savar', 'সাভার': 'Savar',
+        'বসুন্ধরা': 'Basundhara', 'বনানী': 'Banani', 'গুলশান': 'Gulshan',
+        'মোবাইল': 'Mobile', 'ব্ল্যাক': 'Black', 'হোয়াইট': 'White',
+        'লাল': 'Red', 'নীল': 'Blue'
+    };
+
+    const digitMap = { '০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9' };
+
+    // 2. Perform Translation
+    Object.keys(translationMap).forEach(key => {
+        const reg = new RegExp(key, 'g');
+        raw = raw.replace(reg, translationMap[key]);
+    });
     
-    init() { 
-        Inventory.render(); 
-        this.createNewMemo(); 
-    },
+    // Convert Bangla Digits to English
+    raw = raw.replace(/[০-৯]/g, d => digitMap[d]);
 
-    // NEW LOCAL RECOGNITION ENGINE (No API Key Needed)
-    processLocalMagic() {
-        const box = document.getElementById('magic-box');
-        const raw = box.value;
-        if(!raw.trim()) return;
+    // 3. Extract Phone (11 digits starting with 01)
+    const phoneMatch = raw.match(/01[3-9]\d{8}/);
+    const phone = phoneMatch ? phoneMatch[0] : "";
 
-        // 1. Extract Phone (Looks for 11 digit numbers starting with 01)
-        const phoneMatch = raw.match(/01[3-9]\d{8}/);
-        const phone = phoneMatch ? phoneMatch[0] : "";
+    // 4. Split lines to find Name and Address
+    const lines = raw.split('\n').filter(l => l.trim() !== "");
+    let name = lines[0] ? lines[0].replace(phone, '').replace(/[:,-]/g, '').trim() : "CUSTOMER NAME";
+    
+    // Address is usually the rest of the text
+    let address = lines.slice(1).join(', ').replace(phone, '').trim();
+    if(!address) address = "No Address Detected";
 
-        // 2. Extract SKU (Matches any SKU currently in your Inventory)
-        let foundSku = "";
-        let detectedPrice = 0;
-        Inventory.data.forEach(item => {
-            if (raw.toUpperCase().includes(item.sku.toUpperCase())) {
-                foundSku = item.sku;
-            }
-        });
+    // 5. Detect SKU from Inventory
+    let foundSku = "";
+    Inventory.data.forEach(item => {
+        if(raw.toUpperCase().includes(item.sku.toUpperCase())) foundSku = item.sku;
+    });
 
-        // 3. Extract Name (Assumes name is in the first line or before a comma)
-        const lines = raw.split('\n');
-        let name = lines[0].replace(phone, '').replace(/[^\w\s]/gi, '').trim();
-        if(name.length > 20) name = name.substring(0, 20); // Keep it clean
-
-        // 4. Extract Address (Grabs everything that isn't name or phone)
-        let address = raw.replace(phone, '').replace(lines[0], '').trim();
-        if(!address) address = "Address not detected";
-
-        // 5. Detect Shipping Zone (Local Keywords)
-        let shipCost = 120; // Default Outside
-        let shipLabel = "Outside Dhaka";
-        
-        const dhakaKeywords = ['MIRPUR', 'UTTARA', 'DHANMONDI', 'GULSHAN', 'BANANI', 'MOGHBAZAR', 'DHAKA', 'BASUNDHARA'];
-        const suburbanKeywords = ['GAZIPUR', 'SAVAR', 'NARAYANGANJ', 'KERANIGANJ'];
-
-        const upperRaw = raw.toUpperCase();
-        if (suburbanKeywords.some(k => upperRaw.includes(k))) {
-            shipCost = 70; shipLabel = "Suburban";
-        } else if (dhakaKeywords.some(k => upperRaw.includes(k))) {
-            shipCost = 60; shipLabel = "Inside Dhaka";
-        }
-
-        // --- INJECTION ---
-        const active = this.getActive();
+    // 6. Inject into Active Memo
+    const active = this.getActive();
+    if (active) {
         active.querySelector('.m-name').value = name.toUpperCase();
         active.querySelector('.m-phone').value = phone;
         active.querySelector('.m-addr').value = address;
-        
-        this.setShipping(shipCost, shipLabel);
 
-        // Auto-add product if SKU detected
-        if(foundSku) {
-            this.pending = Inventory.data.find(i => i.sku === foundSku);
-            this.injectRow("N/A", "N/A", 1);
+        // Shipping Zone Detection
+        const up = raw.toUpperCase();
+        if(['GAZIPUR', 'SAVAR', 'NARAYANGANJ', 'KERANIGANJ'].some(k => up.includes(k))) {
+            this.setShipping(70, 'Suburban');
+        } else if(['MIRPUR', 'UTTARA', 'DHAKA', 'DHANMONDI', 'GULSHAN', 'BANANI', 'MOGHBAZAR'].some(k => up.includes(k))) {
+            this.setShipping(60, 'Inside Dhaka');
+        } else {
+            this.setShipping(120, 'Outside Dhaka');
         }
 
-        box.value = ""; // Clear box after success
-    },
+        // If SKU found, open the selector modal
+        if(foundSku) {
+            this.prepItem(foundSku);
+        }
+    }
 
-    // ... rest of your Core functions (injectRow, recalc, etc.) stay the same
-};
+    box.value = ""; // Clear for next use
+    this.updateBatchList();
+},
