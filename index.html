@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | NEURAL v74</title>
+    <title>ONEN STUDIO | CORE v75</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -11,24 +11,27 @@
 <body class="bg-[#080808] text-white">
     <div class="app-shell flex h-screen overflow-hidden">
         
-        <aside class="w-80 bg-[#0C0C0C] border-r border-white/5 p-8 flex flex-col gap-8 overflow-y-auto custom-scroll">
+        <aside class="w-80 bg-[#0C0C0C] border-r border-white/5 p-6 flex flex-col gap-6 overflow-y-auto custom-scroll">
             <div class="brand">
-                <h1 class="text-4xl font-black italic tracking-tighter">ONEN<span class="text-amber-500">.</span></h1>
-                <p class="text-[9px] uppercase tracking-[0.4em] text-white/20">Neural Interface</p>
+                <h1 class="text-3xl font-black italic tracking-tighter">ONEN<span class="text-amber-500">.</span></h1>
             </div>
 
-            <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase hover:bg-amber-500 transition-all">+ New Memo</button>
-
-            <div class="ai-hub bg-white/5 p-5 rounded-[24px] border border-white/5">
-                <label class="label text-amber-500 mb-3">Neural Parser</label>
-                <textarea id="magic-box" class="w-full bg-transparent text-[11px] h-32 outline-none resize-none placeholder-white/10 text-white font-medium" placeholder="Paste WhatsApp order..."></textarea>
-                <button onclick="Core.askGemini()" id="ai-btn" class="w-full mt-4 py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl hover:shadow-[0_0_20px_rgba(245,158,11,0.2)]">PROCESS WITH AI</button>
+            <div class="inventory-form bg-white/5 p-4 rounded-2xl border border-white/5">
+                <label class="label text-amber-500 mb-2">Manage Product</label>
+                <input id="in-sku" class="glass-input mb-2" placeholder="UNIQUE SKU (e.g. 101)">
+                <input id="in-name" class="glass-input mb-2" placeholder="PRODUCT NAME">
+                <input id="in-price" type="number" class="glass-input mb-2" placeholder="PRICE">
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <input id="in-cols" class="glass-input text-[10px]" placeholder="COLORS (Red,Blue)">
+                    <input id="in-sizes" class="glass-input text-[10px]" placeholder="SIZES (M,L,XL)">
+                </div>
+                <button onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[10px] rounded-xl hover:bg-amber-500 uppercase transition-all">Save to Database</button>
             </div>
 
-            <div class="inventory-hub">
+            <div class="inventory-list-container">
                 <div class="flex justify-between items-center mb-4">
-                    <label class="label">Stock Index</label>
-                    <button onclick="Inventory.exportCSV()" class="text-[8px] opacity-30 hover:opacity-100 border border-white/10 px-2 py-1 rounded">CSV EXPORT</button>
+                    <label class="label">Inventory Index</label>
+                    <button onclick="Inventory.exportCSV()" class="text-[8px] opacity-30 hover:opacity-100 border border-white/10 px-2 py-1 rounded">EXPORT CSV</button>
                 </div>
                 <div id="inventory-list" class="space-y-2"></div>
             </div>
@@ -38,82 +41,92 @@
             <div id="pdf-container" class="space-y-12"></div>
         </main>
 
-        <aside class="w-72 bg-[#0C0C0C] border-l border-white/5 p-8 flex flex-col gap-8">
-            <label class="label">Shipping Zone</label>
-            <div class="space-y-2">
-                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="ship-card">Inside Dhaka <span class="float-right text-white/20 font-mono">60</span></button>
-                <button onclick="Core.setShipping(70, 'Suburban')" class="ship-card text-amber-500">Suburban <span class="float-right text-white/20 font-mono">70</span></button>
-                <button onclick="Core.setShipping(120, 'Outside')" class="ship-card text-red-500">Outside Dhaka <span class="float-right text-white/20 font-mono">120</span></button>
+        <aside class="w-72 bg-[#0C0C0C] border-l border-white/5 p-6 flex flex-col gap-6">
+            <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase">+ New Memo</button>
+            
+            <div class="ai-box bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                <label class="label text-amber-500">Neural Parser</label>
+                <textarea id="magic-box" class="w-full bg-transparent text-[11px] h-24 outline-none resize-none placeholder-white/10 text-white" placeholder="Paste order..."></textarea>
+                <button onclick="Core.askGemini()" id="ai-btn" class="w-full mt-2 py-2 bg-amber-500 text-black font-black text-[10px] rounded-lg">PROCESS AI</button>
+            </div>
+
+            <label class="label">Shipping</label>
+            <div class="space-y-1">
+                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="ship-card">Dhaka 60</button>
+                <button onclick="Core.setShipping(70, 'Suburban')" class="ship-card text-amber-500">Suburban 70</button>
+                <button onclick="Core.setShipping(120, 'Outside')" class="ship-card text-red-500">Outside 120</button>
             </div>
 
             <label class="label">Batch History</label>
-            <div id="batch-list" class="space-y-2 overflow-y-auto max-h-48 custom-scroll"></div>
+            <div id="batch-list" class="space-y-2 overflow-y-auto max-h-40 custom-scroll"></div>
 
-            <button onclick="Core.exportPDF()" class="mt-auto w-full py-4 bg-white text-black font-black text-[11px] rounded-2xl hover:bg-amber-500 transition-colors uppercase">Download Batch PDF</button>
+            <button onclick="Core.exportPDF()" class="mt-auto w-full py-4 border border-white/10 text-white font-black text-[11px] rounded-2xl hover:bg-white hover:text-black uppercase">Export PDF Batch</button>
         </aside>
     </div>
 
     <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-50">
-        <div class="bg-[#111] border border-white/10 p-10 rounded-[40px] w-80 shadow-2xl">
-            <h2 id="m-title" class="text-2xl font-black italic text-white mb-1"></h2>
-            <p id="m-sku" class="text-[10px] text-amber-500 font-mono tracking-widest uppercase mb-8"></p>
+        <div class="bg-[#111] border border-white/10 p-10 rounded-[40px] w-80">
+            <h2 id="m-title" class="text-2xl font-black italic text-white mb-6 uppercase"></h2>
             <div class="space-y-5">
-                <div><label class="label">Color Selection</label><select id="m-col" class="glass-input"></select></div>
-                <div><label class="label">Size Selection</label><select id="m-sz" class="glass-input"></select></div>
-                <div><label class="label">Quantity</label><input id="m-qty" type="number" value="1" min="1" class="glass-input text-center text-xl font-bold"></div>
-                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black uppercase text-[11px] rounded-2xl">Add to Memo</button>
-                <button onclick="UI.toggleModal(false)" class="w-full text-[10px] text-white/20 mt-2 uppercase font-bold tracking-widest">Cancel</button>
+                <select id="m-col" class="glass-input"></select>
+                <select id="m-sz" class="glass-input"></select>
+                <input id="m-qty" type="number" value="1" min="1" class="glass-input text-center text-xl font-bold">
+                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl">Confirm</button>
+                <button onclick="UI.toggleModal(false)" class="w-full text-[10px] text-white/20 mt-2 uppercase">Cancel</button>
             </div>
         </div>
     </div>
 
     <template id="memo-tpl">
-        <div class="memo-card bg-white text-black p-[18mm] shadow-2xl" onclick="Core.selectMemo(this)">
-            <div class="flex justify-between items-start border-b-[10px] border-black pb-5 mb-8">
+        <div class="memo-card bg-white text-black p-[15mm] shadow-2xl relative" onclick="Core.selectMemo(this)">
+            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-4 right-4 text-red-400 hover:text-red-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+            </button>
+            
+            <div class="flex justify-between items-start border-b-[8px] border-black pb-4 mb-6">
                 <div>
-                    <h2 class="text-7xl font-black italic tracking-tighter leading-none">ONEN</h2>
-                    <p class="text-[11px] font-extrabold tracking-[0.4em] uppercase mt-2">Modern Essentials for the Bold</p>
+                    <h2 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h2>
+                    <p class="text-[10px] font-bold tracking-[0.3em] uppercase mt-1">Modern Essentials for the Bold</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-5xl font-black m-id">#0000</div>
-                    <div class="text-[11px] font-bold m-date text-slate-400 font-mono mt-1"></div>
+                    <div class="text-3xl font-black m-id">#0000</div>
+                    <div class="text-[10px] font-bold m-date text-slate-400"></div>
                 </div>
             </div>
-
-            <div class="grid grid-cols-2 gap-10 mb-10">
+            
+            <div class="grid grid-cols-2 gap-8 mb-8">
                 <div>
-                    <input class="m-name w-full border-none font-black text-3xl uppercase p-0 focus:ring-0 placeholder-gray-200" placeholder="CUSTOMER NAME">
-                    <input class="m-phone w-full border-none font-bold text-xl p-0 focus:ring-0 placeholder-gray-200 mt-1" placeholder="PHONE NUMBER">
-                    <textarea class="m-addr w-full border-none h-20 text-[13px] p-0 mt-4 resize-none font-medium focus:ring-0 placeholder-gray-200" placeholder="FULL SHIPPING ADDRESS"></textarea>
+                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0 focus:ring-0" placeholder="NAME">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="PHONE">
+                    <textarea class="m-addr w-full border-none h-16 text-[12px] p-0 mt-2 resize-none font-medium focus:ring-0" placeholder="ADDRESS"></textarea>
                 </div>
-                <div class="text-right"><span class="m-tag border-[6px] border-black px-6 py-2 font-black uppercase italic text-sm">Inside Dhaka</span></div>
+                <div class="text-right"><span class="m-tag border-[4px] border-black px-4 py-1 font-black uppercase italic text-xs">Inside Dhaka</span></div>
             </div>
 
             <div class="flex-grow">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b-[4px] border-black">
-                            <th class="text-left py-2 font-black uppercase text-[10px]">SL</th>
-                            <th class="text-left font-black uppercase text-[10px]">Description</th>
-                            <th class="text-center font-black uppercase text-[10px]">Attr</th>
-                            <th class="text-center font-black uppercase text-[10px]">Qty</th>
-                            <th class="text-right font-black uppercase text-[10px]">Total</th>
+                        <tr class="border-b-2 border-black font-black text-[10px] uppercase text-left">
+                            <th class="py-2">SL</th><th class="w-1/2">Item</th><th class="text-center">Attr</th><th class="text-center">Qty</th><th class="text-right">Price</th>
                         </tr>
                     </thead>
-                    <tbody class="m-body font-bold italic"></tbody>
+                    <tbody class="m-body font-bold italic text-[13px]"></tbody>
                 </table>
             </div>
 
-            <div class="mt-12 flex justify-between items-end border-t border-slate-100 pt-8">
-                <div class="text-[9px] font-bold text-slate-400 leading-relaxed uppercase">
-                    <p class="text-black font-black mb-1">Studio Policies:</p>
-                    <p>• 7-Day exchange from delivery date</p>
-                    <p>• Tags must remain intact & unwashed</p>
-                    <p>• Contact: onenwear.com | @onenstudio</p>
+            <div class="mt-10 flex justify-between items-end border-t border-slate-100 pt-6">
+                <div class="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">
+                    <p class="text-black font-black mb-1">Policies:</p>
+                    <p>• 7-Day Exchange Policy</p>
+                    <p>• Tags must remain intact</p>
+                    <p>• onenwear.com</p>
                 </div>
-                <div class="w-72 text-right font-black">
-                    <div class="flex justify-between text-slate-400 text-[13px] mb-1"><span>DELIVERY CHARGE</span><span class="m-s">60</span></div>
-                    <div class="flex justify-between border-t-[8px] border-black text-[54px] pt-1 leading-none"><span>DUE</span><span class="m-t">0</span></div>
+                <div class="w-56 text-right font-black">
+                    <div class="flex justify-between text-slate-400 text-[11px]"><span>SHIP</span><span class="m-s">60</span></div>
+                    <div class="flex justify-between border-t-4 border-black text-4xl pt-1"><span>DUE</span><span class="m-t">0</span></div>
                 </div>
             </div>
         </div>
