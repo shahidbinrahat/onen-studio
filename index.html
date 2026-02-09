@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | Master v99.5</title>
+    <title>ONEN STUDIO | Master v99.6</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -12,36 +12,32 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        :root { --accent: #F59E0B; --smooth: cubic-bezier(0.16, 1, 0.3, 1); }
-        
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020202; color: white; overflow: hidden; margin: 0; }
-
-        /* Animation System */
-        .view-panel { transition: transform 0.5s var(--smooth), opacity 0.5s var(--smooth); transform: translateY(0); opacity: 1; }
-        .view-hidden { transform: translateY(20px); opacity: 0; pointer-events: none; display: none !important; }
-
-        /* UI Elements */
-        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; transition: 0.3s; }
-        .glass:focus-within { border-color: var(--accent); background: rgba(255,255,255,0.06); }
         
+        /* Navigation & Panels */
+        .view-panel { display: block; animation: fadeIn 0.3s ease-out; }
+        .view-hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+        
+        /* Memo Styling */
         .memo-card { 
             width: 210mm; height: 148.5mm; background: white; color: black; 
-            margin: 0 auto; display: flex; flex-direction: column; padding: 12mm;
-            transition: transform 0.6s var(--smooth), opacity 0.6s var(--smooth);
-            transform: scale(0.96); opacity: 0.15; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin: 0 auto 40px auto; display: flex; flex-direction: column; padding: 12mm;
+            position: relative; transition: 0.3s; border: 4px solid transparent;
         }
-        .memo-card.active { transform: scale(1); opacity: 1; box-shadow: 0 40px 80px rgba(0,0,0,0.6); z-index: 10; }
+        .memo-card.active { border-color: #F59E0B; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
 
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
-        .online { background: #10B981; box-shadow: 0 0 12px #10B981; }
+        .online { background: #10B981; box-shadow: 0 0 10px #10B981; }
 
-        /* Custom Scroll */
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
         @media print { 
             .no-print { display: none !important; } 
-            .memo-card { opacity: 1!important; transform: scale(1)!important; border: none!important; margin: 0!important; box-shadow: none!important; } 
+            .memo-card { border: none !important; box-shadow: none !important; margin: 0 !important; page-break-after: always; } 
         }
     </style>
 </head>
@@ -54,120 +50,117 @@
                 <div id="cloud-status" class="status-dot"></div>
             </div>
 
-            <nav class="flex p-1 bg-white/5 rounded-xl mb-6 border border-white/5">
-                <button onclick="UI.show('ops')" class="flex-1 py-2 text-[9px] font-black uppercase rounded-lg hover:text-amber-500 transition">Entry</button>
-                <button onclick="UI.show('inv')" class="flex-1 py-2 text-[9px] font-black uppercase rounded-lg hover:text-amber-500 transition">Stock</button>
-                <button onclick="UI.show('hist')" class="flex-1 py-2 text-[9px] font-black uppercase rounded-lg hover:text-amber-500 transition">History</button>
-            </nav>
+            <div class="flex gap-1 p-1 bg-white/5 rounded-xl mb-6 border border-white/5 no-print">
+                <button onclick="UI.show('ops')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">Entry</button>
+                <button onclick="UI.show('inv')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">Stock</button>
+                <button onclick="UI.show('hist')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">History</button>
+            </div>
 
             <div id="ops-view" class="view-panel space-y-4">
-                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all">+ New Entry</button>
-                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none resize-none" placeholder="Paste data..."></textarea>
-                
-                <div class="space-y-2">
-                    <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search SKU...">
-                    <div id="cat-list" class="h-60 overflow-y-auto space-y-2 pr-2 custom-scroll"></div>
-                </div>
+                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all">+ New Memo</button>
+                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none resize-none" placeholder="Paste Customer Data..."></textarea>
+                <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search SKU/Name...">
+                <div id="cat-list" class="h-[300px] overflow-y-auto space-y-2 pr-2 custom-scroll"></div>
             </div>
 
             <div id="inv-view" class="view-panel view-hidden space-y-4">
                 <div class="glass p-4 space-y-2">
-                    <input id="in-sku" class="glass w-full p-3 text-[10px]" placeholder="SKU Code">
+                    <input id="in-sku" class="glass w-full p-3 text-[10px]" placeholder="SKU (e.g. ONEN-01)">
                     <input id="in-name" class="glass w-full p-3 text-[10px]" placeholder="Product Name">
                     <input id="in-price" type="number" class="glass w-full p-3 text-[10px]" placeholder="Price">
-                    <input id="in-cols" class="glass w-full p-3 text-[10px]" placeholder="Colors (White, Black)">
+                    <input id="in-cols" class="glass w-full p-3 text-[10px]" placeholder="Colors (Red, Black)">
                     <input id="in-sizes" class="glass w-full p-3 text-[10px]" placeholder="Sizes (M, L, XL)">
-                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl mt-2">SYNC TO CLOUD</button>
+                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl mt-2">ADD TO CLOUD</button>
                 </div>
-                <div id="inv-list" class="h-40 overflow-y-auto space-y-1 text-[10px] opacity-50"></div>
+                <div id="inv-list" class="h-40 overflow-y-auto space-y-1 text-[10px] opacity-50 custom-scroll"></div>
             </div>
 
             <div id="hist-view" class="view-panel view-hidden space-y-2 h-full overflow-y-auto pr-2 custom-scroll"></div>
         </aside>
 
-        <main class="flex-grow bg-[#050505] overflow-y-auto p-12 scroll-smooth">
-            <div id="workspace" class="space-y-20 pb-40"></div>
+        <main class="flex-grow bg-[#050505] overflow-y-auto p-12 scroll-smooth custom-scroll">
+            <div id="workspace" class="space-y-10 pb-40"></div>
             
-            <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-3xl p-3 rounded-3xl border border-white/10 no-print shadow-2xl">
-                <button onclick="Core.setShip(60, 'Inside Dhaka')" class="px-6 py-3 text-[10px] font-black hover:text-amber-500 transition">৳60 DHAKA</button>
-                <button onclick="Core.setShip(120, 'Outside')" class="px-6 py-3 text-[10px] font-black hover:text-amber-500 transition">৳120 OUT</button>
+            <div class="fixed bottom-10 left-[55%] -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-xl p-3 rounded-3xl border border-white/10 no-print shadow-2xl">
+                <button onclick="Core.setShip(60, 'Inside Dhaka')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳60 DHAKA</button>
+                <button onclick="Core.setShip(70, 'Suburban')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳70 SUB</button>
+                <button onclick="Core.setShip(120, 'Outside')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳120 OUT</button>
                 <div class="w-[1px] h-6 bg-white/10 mx-2"></div>
-                <button onclick="Core.exportPDF()" class="px-8 py-3 bg-white text-black text-[10px] font-black rounded-2xl hover:bg-amber-500 transition">BATCH PRINT</button>
+                <button onclick="Core.exportPDF()" class="px-8 py-3 bg-white text-black text-[10px] font-black rounded-2xl hover:bg-amber-500 transition uppercase">Print All</button>
             </div>
         </main>
     </div>
 
     <div id="modal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-[100]">
-        <div class="bg-[#111] border border-white/10 p-10 rounded-[40px] w-80 text-center">
-            <h2 id="m-title" class="text-xl font-black uppercase italic mb-6 text-amber-500"></h2>
-            <div class="text-left mb-4">
-                <label class="text-[9px] uppercase opacity-30 ml-2">Colors (Hold Ctrl for multiple)</label>
-                <select id="m-col" multiple class="glass w-full h-28 mt-1 p-2 text-[11px] custom-scroll"></select>
+        <div class="bg-[#111] border border-white/10 p-10 rounded-[30px] w-80">
+            <h2 id="m-title" class="text-lg font-black uppercase text-amber-500 mb-6 text-center"></h2>
+            <div class="mb-4">
+                <label class="text-[9px] uppercase opacity-40 block mb-2">Colors (Ctrl + Click for Multi)</label>
+                <select id="m-col" multiple class="glass w-full h-24 p-2 text-[11px] outline-none"></select>
             </div>
-            <div class="text-left mb-8">
-                <label class="text-[9px] uppercase opacity-30 ml-2">Size</label>
-                <select id="m-sz" class="glass w-full p-3 mt-1 text-[11px]"></select>
+            <div class="mb-8">
+                <label class="text-[9px] uppercase opacity-40 block mb-2">Size</label>
+                <select id="m-sz" class="glass w-full p-3 text-[11px] outline-none"></select>
             </div>
-            <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl uppercase text-[11px]">Add to Memo</button>
-            <button onclick="UI.modal(false)" class="mt-4 text-[9px] opacity-20 font-bold uppercase">Cancel</button>
+            <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-xl uppercase text-[11px]">Add Product</button>
+            <button onclick="UI.modal(false)" class="w-full mt-4 text-[9px] opacity-30 font-bold uppercase">Cancel</button>
         </div>
     </div>
 
     <template id="memo-tpl">
         <div class="memo-card" onclick="Core.selectMemo(this)">
-            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-6 right-6 text-red-500 font-bold text-[9px] opacity-10 hover:opacity-100 transition">REMOVE</button>
+            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-4 right-4 text-red-500 font-bold text-[9px] opacity-20 hover:opacity-100">DELETE</button>
             
-            <div class="flex justify-between border-b-8 border-black pb-4 mb-6">
+            <div class="flex justify-between border-b-4 border-black pb-4 mb-6">
                 <div>
-                    <h1 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h1>
-                    <p class="text-[10px] font-bold tracking-[0.4em] uppercase mt-1">Clothing the soul in silence</p>
+                    <h1 class="text-5xl font-black italic tracking-tighter leading-none">ONEN</h1>
+                    <p class="text-[9px] font-bold tracking-[0.3em] uppercase mt-1">Clothing the soul in silence</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-3xl font-black m-id">#0000</div>
-                    <div class="text-[10px] font-bold m-date text-slate-400 uppercase tracking-widest mt-1"></div>
+                    <div class="text-2xl font-black m-id">#0000</div>
+                    <div class="text-[9px] font-bold m-date text-slate-400 uppercase mt-1"></div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-10 mb-8">
+            <div class="grid grid-cols-2 gap-10 mb-6">
                 <div class="space-y-1">
-                    <input class="m-name w-full border-none font-black text-2xl p-0 focus:ring-0 uppercase" placeholder="CUSTOMER NAME" oninput="Core.cloudSync()">
-                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="01XXXXXXXXX" oninput="Core.cloudSync()">
-                    <textarea class="m-addr w-full border-none text-[11px] h-14 p-0 resize-none focus:ring-0" placeholder="ADDRESS" oninput="Core.cloudSync()"></textarea>
+                    <input class="m-name w-full border-none font-black text-xl p-0 focus:ring-0 uppercase" placeholder="CUSTOMER NAME" oninput="Core.cloudSync()">
+                    <input class="m-phone w-full border-none font-bold text-md p-0 focus:ring-0" placeholder="PHONE NUMBER" oninput="Core.cloudSync()">
+                    <textarea class="m-addr w-full border-none text-[11px] h-12 p-0 resize-none focus:ring-0" placeholder="ADDRESS" oninput="Core.cloudSync()"></textarea>
                 </div>
                 <div class="text-right">
-                    <span class="m-tag border-[3px] border-black px-5 py-2 text-[11px] font-black italic uppercase">Inside Dhaka</span>
+                    <span class="m-tag border-2 border-black px-4 py-1 text-[10px] font-black uppercase">Inside Dhaka</span>
                 </div>
             </div>
 
             <div class="flex-grow">
-                <table class="w-full text-[13px]">
-                    <thead class="border-b-2 border-black font-black text-[10px] uppercase">
+                <table class="w-full text-[12px]">
+                    <thead class="border-b border-black font-black text-[9px] uppercase">
                         <tr>
-                            <th class="pb-3 w-10 text-left">SL</th>
-                            <th class="pb-3 text-left">ITEM DESCRIPTION</th>
-                            <th class="pb-3 text-center">VAR</th>
-                            <th class="pb-3 text-right">PRICE</th>
+                            <th class="pb-2 w-8 text-left">SL</th>
+                            <th class="pb-2 text-left">DESCRIPTION</th>
+                            <th class="pb-2 text-center">VAR</th>
+                            <th class="pb-2 text-right">PRICE</th>
                             <th class="no-print w-8"></th>
                         </tr>
                     </thead>
-                    <tbody class="m-body font-bold italic leading-loose"></tbody>
+                    <tbody class="m-body font-bold italic leading-relaxed"></tbody>
                 </table>
             </div>
 
-            <div class="mt-8 border-t border-slate-100 pt-6 flex justify-between items-end">
-                <div class="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-                    <p class="text-black font-black mb-1 italic">Studio Policy:</p>
+            <div class="mt-6 border-t border-slate-100 pt-4 flex justify-between items-end">
+                <div class="text-[8px] font-bold text-slate-400 uppercase">
+                    <p class="text-black font-black italic">Studio Policy:</p>
                     <p>• 7-Day Exchange Only • Tags Intact</p>
-                    <p>• Delivery charge must be paid if returned</p>
                 </div>
-                <div class="text-right w-48">
-                    <div class="flex justify-between text-slate-400 font-bold text-[11px] mb-1">
-                        <span>SHIPPING</span>
+                <div class="text-right w-40">
+                    <div class="flex justify-between text-slate-400 font-bold text-[10px] mb-1">
+                        <span>DELIVERY</span>
                         <span class="m-s-val">0</span>
                     </div>
-                    <div class="flex justify-between border-t-2 border-black pt-2 font-black">
-                        <span class="text-sm">TOTAL</span>
-                        <span class="text-4xl m-total">0</span>
+                    <div class="flex justify-between border-t border-black pt-1 font-black">
+                        <span class="text-xs">TOTAL</span>
+                        <span class="text-3xl m-total">0</span>
                     </div>
                 </div>
             </div>
@@ -175,7 +168,6 @@
     </template>
 
     <script>
-        // CONFIG
         const firebaseConfig = { apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", authDomain: "onen-studio.firebaseapp.com", projectId: "onen-studio", databaseURL: "https://onen-studio-default-rtdb.firebaseio.com" };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
@@ -199,7 +191,6 @@
                     sizes: document.getElementById('in-sizes').value.split(',').map(s=>s.trim())
                 }).then(() => {
                     ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = '');
-                    UI.show('ops');
                 });
             },
             render() {
@@ -215,30 +206,28 @@
         };
 
         const Core = {
-            activeIdx: 0, pending: null, seq: 1001,
+            activeIdx: 0, pending: null,
             init() { 
                 Inventory.init(); 
                 db.ref('session_memos').once('value', snap => {
-                    if(snap.val()) {
-                        snap.val().forEach(m => this.injectMemo(m));
-                    } else { this.createNewMemo(); }
+                    if(snap.val()) snap.val().forEach(m => this.injectMemo(m));
+                    else this.createNewMemo();
                 });
             },
             createNewMemo() {
-                const m = { id: '#'+(this.seq++), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', date: new Date().toLocaleDateString('en-GB') };
+                const m = { id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', date: new Date().toLocaleDateString('en-GB'), items: [] };
                 this.injectMemo(m);
-                this.cloudSync();
             },
             injectMemo(data) {
                 const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
                 const card = tpl.querySelector('.memo-card');
                 card.querySelector('.m-id').innerText = data.id;
                 card.querySelector('.m-date').innerText = data.date;
-                card.querySelector('.m-name').value = data.name;
-                card.querySelector('.m-phone').value = data.phone;
-                card.querySelector('.m-addr').value = data.addr;
-                card.querySelector('.m-s-val').innerText = data.ship;
-                card.querySelector('.m-tag').innerText = data.tag;
+                card.querySelector('.m-name').value = data.name || '';
+                card.querySelector('.m-phone').value = data.phone || '';
+                card.querySelector('.m-addr').value = data.addr || '';
+                card.querySelector('.m-s-val').innerText = data.ship || 0;
+                card.querySelector('.m-tag').innerText = data.tag || 'INSIDE DHAKA';
                 document.getElementById('workspace').prepend(card);
                 this.selectMemo(card);
             },
@@ -246,7 +235,6 @@
                 document.querySelectorAll('.memo-card').forEach(c => c.classList.remove('active'));
                 el.classList.add('active');
                 this.activeIdx = Array.from(document.querySelectorAll('.memo-card')).indexOf(el);
-                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 this.updateHistory();
             },
             getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
@@ -267,11 +255,11 @@
                 UI.modal(true);
             },
             confirmAdd() {
-                const cols = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
-                const row = `<tr class="border-b border-slate-100">
-                    <td class="py-4 text-slate-300"></td>
-                    <td class="uppercase">${this.pending.name} <span class="text-[9px] opacity-20">[${this.pending.sku}]</span></td>
-                    <td class="text-center uppercase text-[10px]">${cols.join('/')}-${document.getElementById('m-sz').value}</td>
+                const selectedCols = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
+                const row = `<tr class="border-b border-slate-50">
+                    <td class="py-3 text-slate-300"></td>
+                    <td class="uppercase">${this.pending.name} <span class="text-[8px] opacity-20">[${this.pending.sku}]</span></td>
+                    <td class="text-center uppercase text-[9px]">${selectedCols.join('/')}-${document.getElementById('m-sz').value}</td>
                     <td class="text-right font-black r-price">${this.pending.price}</td>
                     <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-500 font-bold px-2">×</button></td>
                 </tr>`;
@@ -301,14 +289,12 @@
             },
             updateHistory() {
                 document.getElementById('hist-view').innerHTML = Array.from(document.querySelectorAll('.memo-card')).map((c, i) => `
-                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="glass p-4 cursor-pointer ${i==this.activeIdx?'border-amber-500 shadow-lg':'opacity-40'}">
+                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="glass p-4 cursor-pointer ${i==this.activeIdx?'border-amber-500':'opacity-30'}">
                         <div class="text-[10px] font-black">${c.querySelector('.m-id').innerText}</div>
-                        <div class="text-[9px] uppercase opacity-60">${c.querySelector('.m-name').value || 'Draft Entry'}</div>
+                        <div class="text-[9px] uppercase">${c.querySelector('.m-name').value || 'New Memo'}</div>
                     </div>`).join('');
             },
-            exportPDF() {
-                html2pdf().from(document.getElementById('workspace')).set({ margin: 0, filename: 'ONEN_BATCH.pdf', html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4' } }).save();
-            }
+            exportPDF() { window.print(); }
         };
 
         const UI = {
