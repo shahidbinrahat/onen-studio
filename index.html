@@ -3,165 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | Master v99.6</title>
+    <title>ONEN STUDIO | v99.8</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        
+        :root { --accent: #F59E0B; --smooth: cubic-bezier(0.16, 1, 0.3, 1); }
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020202; color: white; overflow: hidden; margin: 0; }
         
-        /* Navigation & Panels */
-        .view-panel { display: block; animation: fadeIn 0.3s ease-out; }
-        .view-hidden { display: none !important; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        /* Smooth Panels */
+        .view-panel { transition: transform 0.6s var(--smooth), opacity 0.5s var(--smooth); transform: translateY(0); opacity: 1; }
+        .view-hidden { transform: translateY(30px); opacity: 0; pointer-events: none; display: none !important; }
 
-        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
+        .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; }
         
-        /* Memo Styling */
+        /* Memo Presentation */
         .memo-card { 
             width: 210mm; height: 148.5mm; background: white; color: black; 
-            margin: 0 auto 40px auto; display: flex; flex-direction: column; padding: 12mm;
-            position: relative; transition: 0.3s; border: 4px solid transparent;
+            margin: 0 auto 60px auto; display: flex; flex-direction: column; padding: 15mm;
+            transition: transform 0.7s var(--smooth), opacity 0.7s var(--smooth);
+            transform: scale(0.95); opacity: 0.2; position: relative;
         }
-        .memo-card.active { border-color: #F59E0B; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .memo-card.active { transform: scale(1); opacity: 1; box-shadow: 0 50px 100px rgba(0,0,0,0.7); z-index: 10; }
+
+        /* Glowing Trash Bin */
+        .dustbin-btn {
+            position: absolute; top: 25px; right: 25px; width: 40px; height: 40px;
+            display: flex; items-center; justify-content: center;
+            border-radius: 50%; color: rgba(0,0,0,0.1); transition: all 0.3s; cursor: pointer;
+        }
+        .dustbin-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); transform: scale(1.1); }
 
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
         .online { background: #10B981; box-shadow: 0 0 10px #10B981; }
 
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
 
         @media print { 
             .no-print { display: none !important; } 
-            .memo-card { border: none !important; box-shadow: none !important; margin: 0 !important; page-break-after: always; } 
+            .memo-card { opacity: 1!important; transform: scale(1)!important; border: none!important; margin: 0!important; box-shadow: none!important; } 
         }
     </style>
 </head>
 <body>
 
     <div class="flex h-screen overflow-hidden">
-        <aside class="w-80 bg-[#080808] border-r border-white/5 flex flex-col p-6 z-50">
-            <div class="flex items-center justify-between mb-8">
-                <h1 class="text-xl font-black italic tracking-tighter uppercase">ONEN STUDIO</h1>
-                <div id="cloud-status" class="status-dot"></div>
-            </div>
+        <aside class="w-24 bg-[#080808] border-r border-white/5 flex flex-col items-center py-8 z-50">
+            <div id="cloud-status" class="status-dot mb-10"></div>
 
-            <div class="flex gap-1 p-1 bg-white/5 rounded-xl mb-6 border border-white/5 no-print">
-                <button onclick="UI.show('ops')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">Entry</button>
-                <button onclick="UI.show('inv')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">Stock</button>
-                <button onclick="UI.show('hist')" class="flex-1 py-2 text-[10px] font-black uppercase rounded-lg hover:bg-white/5 transition">History</button>
-            </div>
+            <nav class="flex flex-col gap-8 no-print">
+                <button onclick="UI.show('ops')" class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 transition group" title="Entry">
+                    <i class="fa-solid fa-pen-nib text-lg opacity-40 group-hover:opacity-100 group-hover:text-amber-500"></i>
+                </button>
+                <button onclick="UI.show('inv')" class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 transition group" title="Stock">
+                    <i class="fa-solid fa-box-open text-lg opacity-40 group-hover:opacity-100 group-hover:text-amber-500"></i>
+                </button>
+                <button onclick="UI.show('hist')" class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 transition group" title="History">
+                    <i class="fa-solid fa-clock-rotate-left text-lg opacity-40 group-hover:opacity-100 group-hover:text-amber-500"></i>
+                </button>
+            </nav>
+        </aside>
 
-            <div id="ops-view" class="view-panel space-y-4">
-                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all">+ New Memo</button>
-                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none resize-none" placeholder="Paste Customer Data..."></textarea>
-                <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search SKU/Name...">
-                <div id="cat-list" class="h-[300px] overflow-y-auto space-y-2 pr-2 custom-scroll"></div>
+        <aside class="w-72 bg-[#050505] border-r border-white/5 p-6 overflow-y-auto custom-scroll">
+            <div id="ops-view" class="view-panel space-y-6">
+                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">+ New</button>
+                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none resize-none" placeholder="Paste: Name, Phone, Addr..."></textarea>
+                <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search Product...">
+                <div id="cat-list" class="space-y-2 pr-2"></div>
             </div>
 
             <div id="inv-view" class="view-panel view-hidden space-y-4">
                 <div class="glass p-4 space-y-2">
-                    <input id="in-sku" class="glass w-full p-3 text-[10px]" placeholder="SKU (e.g. ONEN-01)">
-                    <input id="in-name" class="glass w-full p-3 text-[10px]" placeholder="Product Name">
-                    <input id="in-price" type="number" class="glass w-full p-3 text-[10px]" placeholder="Price">
-                    <input id="in-cols" class="glass w-full p-3 text-[10px]" placeholder="Colors (Red, Black)">
-                    <input id="in-sizes" class="glass w-full p-3 text-[10px]" placeholder="Sizes (M, L, XL)">
-                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-xl mt-2">ADD TO CLOUD</button>
+                    <input id="in-sku" class="glass w-full p-2 text-[10px]" placeholder="SKU">
+                    <input id="in-name" class="glass w-full p-2 text-[10px]" placeholder="Name">
+                    <input id="in-price" type="number" class="glass w-full p-2 text-[10px]" placeholder="Price">
+                    <input id="in-cols" class="glass w-full p-2 text-[10px]" placeholder="Cols (Red, Black)">
+                    <input id="in-sizes" class="glass w-full p-2 text-[10px]" placeholder="Sizes (M, L)">
+                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-lg">SAVE CLOUD</button>
                 </div>
-                <div id="inv-list" class="h-40 overflow-y-auto space-y-1 text-[10px] opacity-50 custom-scroll"></div>
+                <div id="inv-list" class="space-y-2"></div>
             </div>
 
-            <div id="hist-view" class="view-panel view-hidden space-y-2 h-full overflow-y-auto pr-2 custom-scroll"></div>
+            <div id="hist-view" class="view-panel view-hidden space-y-2"></div>
         </aside>
 
-        <main class="flex-grow bg-[#050505] overflow-y-auto p-12 scroll-smooth custom-scroll">
-            <div id="workspace" class="space-y-10 pb-40"></div>
+        <main class="flex-grow bg-[#020202] overflow-y-auto p-12 scroll-smooth custom-scroll relative">
+            <div id="workspace" class="space-y-20 pb-60"></div>
             
-            <div class="fixed bottom-10 left-[55%] -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-xl p-3 rounded-3xl border border-white/10 no-print shadow-2xl">
-                <button onclick="Core.setShip(60, 'Inside Dhaka')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳60 DHAKA</button>
-                <button onclick="Core.setShip(70, 'Suburban')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳70 SUB</button>
-                <button onclick="Core.setShip(120, 'Outside')" class="px-4 py-3 text-[9px] font-black hover:text-amber-500 transition">৳120 OUT</button>
+            <div class="fixed bottom-10 left-[55%] -translate-x-1/2 flex items-center gap-2 bg-black/80 backdrop-blur-xl p-3 rounded-3xl border border-white/10 no-print">
+                <button onclick="Core.setShip(60, 'Dhaka')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500">৳60</button>
+                <button onclick="Core.setShip(70, 'Suburban')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500">৳70</button>
+                <button onclick="Core.setShip(120, 'Outside')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500">৳120</button>
                 <div class="w-[1px] h-6 bg-white/10 mx-2"></div>
-                <button onclick="Core.exportPDF()" class="px-8 py-3 bg-white text-black text-[10px] font-black rounded-2xl hover:bg-amber-500 transition uppercase">Print All</button>
+                <button onclick="window.print()" class="px-6 py-2 bg-white text-black text-[10px] font-black rounded-xl">PRINT ALL</button>
             </div>
         </main>
     </div>
 
     <div id="modal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-[100]">
-        <div class="bg-[#111] border border-white/10 p-10 rounded-[30px] w-80">
-            <h2 id="m-title" class="text-lg font-black uppercase text-amber-500 mb-6 text-center"></h2>
-            <div class="mb-4">
-                <label class="text-[9px] uppercase opacity-40 block mb-2">Colors (Ctrl + Click for Multi)</label>
-                <select id="m-col" multiple class="glass w-full h-24 p-2 text-[11px] outline-none"></select>
-            </div>
-            <div class="mb-8">
-                <label class="text-[9px] uppercase opacity-40 block mb-2">Size</label>
-                <select id="m-sz" class="glass w-full p-3 text-[11px] outline-none"></select>
-            </div>
+        <div class="bg-[#111] border border-white/10 p-10 rounded-[30px] w-80 text-center">
+            <h2 id="m-title" class="text-lg font-black uppercase text-amber-500 mb-6"></h2>
+            <select id="m-col" multiple class="glass w-full h-24 p-2 text-[11px] mb-4"></select>
+            <select id="m-sz" class="glass w-full p-3 text-[11px] mb-8"></select>
             <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-xl uppercase text-[11px]">Add Product</button>
-            <button onclick="UI.modal(false)" class="w-full mt-4 text-[9px] opacity-30 font-bold uppercase">Cancel</button>
+            <button onclick="UI.modal(false)" class="mt-4 text-[9px] opacity-20 font-bold uppercase">Cancel</button>
         </div>
     </div>
 
     <template id="memo-tpl">
         <div class="memo-card" onclick="Core.selectMemo(this)">
-            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-4 right-4 text-red-500 font-bold text-[9px] opacity-20 hover:opacity-100">DELETE</button>
+            <div onclick="Core.deleteMemo(event, this)" class="dustbin-btn no-print">
+                <i class="fa-solid fa-trash-can text-lg"></i>
+            </div>
             
-            <div class="flex justify-between border-b-4 border-black pb-4 mb-6">
+            <div class="flex justify-between border-b-8 border-black pb-5 mb-8">
                 <div>
-                    <h1 class="text-5xl font-black italic tracking-tighter leading-none">ONEN</h1>
-                    <p class="text-[9px] font-bold tracking-[0.3em] uppercase mt-1">Clothing the soul in silence</p>
+                    <h1 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h1>
+                    <p class="text-[10px] font-bold tracking-[0.4em] uppercase mt-2">Clothing the soul in silence</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-2xl font-black m-id">#0000</div>
-                    <div class="text-[9px] font-bold m-date text-slate-400 uppercase mt-1"></div>
+                    <div class="text-3xl font-black m-id">#0000</div>
+                    <div class="text-[11px] font-bold m-date text-slate-400 uppercase mt-2"></div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-10 mb-6">
+            <div class="grid grid-cols-2 gap-12 mb-10">
                 <div class="space-y-1">
-                    <input class="m-name w-full border-none font-black text-xl p-0 focus:ring-0 uppercase" placeholder="CUSTOMER NAME" oninput="Core.cloudSync()">
-                    <input class="m-phone w-full border-none font-bold text-md p-0 focus:ring-0" placeholder="PHONE NUMBER" oninput="Core.cloudSync()">
-                    <textarea class="m-addr w-full border-none text-[11px] h-12 p-0 resize-none focus:ring-0" placeholder="ADDRESS" oninput="Core.cloudSync()"></textarea>
+                    <input class="m-name w-full border-none font-black text-2xl p-0 focus:ring-0 uppercase" placeholder="NAME">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="PHONE">
+                    <textarea class="m-addr w-full border-none text-[12px] h-16 p-0 resize-none focus:ring-0" placeholder="ADDRESS"></textarea>
                 </div>
-                <div class="text-right">
-                    <span class="m-tag border-2 border-black px-4 py-1 text-[10px] font-black uppercase">Inside Dhaka</span>
-                </div>
+                <div class="text-right"><span class="m-tag border-[3px] border-black px-6 py-2 text-[12px] font-black uppercase">Inside Dhaka</span></div>
             </div>
 
             <div class="flex-grow">
-                <table class="w-full text-[12px]">
-                    <thead class="border-b border-black font-black text-[9px] uppercase">
-                        <tr>
-                            <th class="pb-2 w-8 text-left">SL</th>
-                            <th class="pb-2 text-left">DESCRIPTION</th>
-                            <th class="pb-2 text-center">VAR</th>
-                            <th class="pb-2 text-right">PRICE</th>
-                            <th class="no-print w-8"></th>
-                        </tr>
+                <table class="w-full text-[14px]">
+                    <thead class="border-b-2 border-black font-black text-[11px] uppercase text-left">
+                        <tr><th class="pb-3 w-10">SL</th><th>DESCRIPTION</th><th class="text-center">VAR</th><th class="text-right">PRICE</th><th class="no-print w-10"></th></tr>
                     </thead>
-                    <tbody class="m-body font-bold italic leading-relaxed"></tbody>
+                    <tbody class="m-body font-bold italic"></tbody>
                 </table>
             </div>
 
-            <div class="mt-6 border-t border-slate-100 pt-4 flex justify-between items-end">
-                <div class="text-[8px] font-bold text-slate-400 uppercase">
-                    <p class="text-black font-black italic">Studio Policy:</p>
-                    <p>• 7-Day Exchange Only • Tags Intact</p>
-                </div>
-                <div class="text-right w-40">
-                    <div class="flex justify-between text-slate-400 font-bold text-[10px] mb-1">
-                        <span>DELIVERY</span>
-                        <span class="m-s-val">0</span>
-                    </div>
-                    <div class="flex justify-between border-t border-black pt-1 font-black">
-                        <span class="text-xs">TOTAL</span>
-                        <span class="text-3xl m-total">0</span>
-                    </div>
+            <div class="mt-8 border-t border-slate-100 pt-6 flex justify-between items-end">
+                <div class="text-[9px] font-bold text-slate-400 uppercase"><p class="text-black font-black italic">Policy:</p><p>• 7-Day Exchange • Tags Intact</p></div>
+                <div class="text-right w-48">
+                    <div class="flex justify-between text-slate-400 font-bold text-[12px] mb-1"><span>SHIP</span><span class="m-s-val">0</span></div>
+                    <div class="flex justify-between border-t-2 border-black pt-2 font-black"><span>TOTAL</span><span class="text-5xl m-total">0</span></div>
                 </div>
             </div>
         </div>
@@ -189,19 +183,13 @@
                     price: parseFloat(document.getElementById('in-price').value) || 0,
                     cols: document.getElementById('in-cols').value.split(',').map(s=>s.trim()),
                     sizes: document.getElementById('in-sizes').value.split(',').map(s=>s.trim())
-                }).then(() => {
-                    ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = '');
-                });
+                }).then(() => { ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = ''); });
             },
             render() {
                 const s = document.getElementById('cat-search').value.toUpperCase();
                 const filtered = this.data.filter(p => p.sku.includes(s) || p.name.toUpperCase().includes(s));
-                document.getElementById('cat-list').innerHTML = filtered.map(p => `
-                    <div onclick="Core.prepItem('${p.sku}')" class="glass p-4 cursor-pointer hover:border-amber-500 transition-all">
-                        <div class="text-[8px] text-amber-500 font-bold">${p.sku}</div>
-                        <div class="text-[11px] font-black uppercase">${p.name}</div>
-                    </div>`).join('');
-                document.getElementById('inv-list').innerHTML = this.data.map(p => `<div class="flex justify-between p-2 border-b border-white/5"><span>${p.sku}</span><button onclick="db.ref('inventory/${p.sku}').remove()" class="text-red-500">×</button></div>`).join('');
+                document.getElementById('cat-list').innerHTML = filtered.map(p => `<div onclick="Core.prepItem('${p.sku}')" class="glass p-4 cursor-pointer hover:border-amber-500 hover:bg-white/5 text-[11px]"><b>${p.sku}</b><br><span class="opacity-40 uppercase">${p.name}</span></div>`).join('');
+                document.getElementById('inv-list').innerHTML = this.data.map(p => `<div class="glass p-3 flex justify-between text-[10px]"><span>${p.sku}</span><button onclick="db.ref('inventory/${p.sku}').remove()" class="text-red-500 font-bold">×</button></div>`).join('');
             }
         };
 
@@ -215,7 +203,7 @@
                 });
             },
             createNewMemo() {
-                const m = { id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', date: new Date().toLocaleDateString('en-GB'), items: [] };
+                const m = { id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', date: new Date().toLocaleDateString('en-GB') };
                 this.injectMemo(m);
             },
             injectMemo(data) {
@@ -255,13 +243,13 @@
                 UI.modal(true);
             },
             confirmAdd() {
-                const selectedCols = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
-                const row = `<tr class="border-b border-slate-50">
-                    <td class="py-3 text-slate-300"></td>
-                    <td class="uppercase">${this.pending.name} <span class="text-[8px] opacity-20">[${this.pending.sku}]</span></td>
-                    <td class="text-center uppercase text-[9px]">${selectedCols.join('/')}-${document.getElementById('m-sz').value}</td>
+                const cols = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
+                const row = `<tr class="border-b border-slate-100">
+                    <td class="py-4"></td>
+                    <td class="uppercase">${this.pending.name} <span class="text-[9px] opacity-20">[${this.pending.sku}]</span></td>
+                    <td class="text-center uppercase text-[10px]">${cols.join('/')}-${document.getElementById('m-sz').value}</td>
                     <td class="text-right font-black r-price">${this.pending.price}</td>
-                    <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-500 font-bold px-2">×</button></td>
+                    <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-500 font-black px-2">×</button></td>
                 </tr>`;
                 this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
                 this.recalc(); UI.modal(false);
@@ -293,15 +281,11 @@
                         <div class="text-[10px] font-black">${c.querySelector('.m-id').innerText}</div>
                         <div class="text-[9px] uppercase">${c.querySelector('.m-name').value || 'New Memo'}</div>
                     </div>`).join('');
-            },
-            exportPDF() { window.print(); }
+            }
         };
 
         const UI = {
-            show(v) {
-                document.querySelectorAll('.view-panel').forEach(p => p.classList.add('view-hidden'));
-                document.getElementById(v + '-view').classList.remove('view-hidden');
-            },
+            show(v) { document.querySelectorAll('.view-panel').forEach(p => p.classList.add('view-hidden')); document.getElementById(v + '-view').classList.remove('view-hidden'); },
             modal(s) { document.getElementById('modal').style.display = s ? 'flex' : 'none'; }
         };
 
