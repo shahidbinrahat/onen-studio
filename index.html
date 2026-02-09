@@ -3,26 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | v85</title>
+    <title>ONEN STUDIO | v86</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; overflow: hidden; }
         .label { font-size: 8px; font-weight: 800; color: #444; text-transform: uppercase; letter-spacing: 2px; display: block; }
-        .glass-input { background: #000; border: 1px solid #1a1a1a; color: white; border-radius: 10px; padding: 10px; font-size: 11px; width: 100%; outline: none; transition: 0.2s; }
-        .glass-input:focus { border-color: #F59E0B; background: #080808; }
+        .glass-input { background: #000; border: 1px solid #1a1a1a; color: white; border-radius: 10px; padding: 10px; font-size: 11px; width: 100%; outline: none; }
+        .glass-input:focus { border-color: #F59E0B; }
         
-        /* Sidebar Pivot Logic */
-        #sidebar-content { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        #sidebar-content { transition: 0.3s; }
         .pivot-active #control-view { display: none; }
         .pivot-active #inventory-view { display: block; }
         #inventory-view { display: none; }
 
-        .memo-card { width: 210mm; min-height: 148.5mm; background: white; color: black; transition: 0.4s; transform: scale(0.95); opacity: 0.3; cursor: pointer; }
+        .memo-card { width: 210mm; min-height: 148.5mm; background: white; color: black; transition: 0.4s; transform: scale(0.95); opacity: 0.3; cursor: pointer; position: relative; }
         .memo-card.active { transform: scale(1); opacity: 1; border: 4px solid #F59E0B; box-shadow: 0 50px 100px rgba(0,0,0,0.8); }
         
-        select[multiple] { height: 110px !important; }
+        .add-item-btn { position: absolute; left: -50px; top: 50%; transform: translateY(-50%); background: #F59E0B; color: black; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; cursor: pointer; transition: 0.3s; box-shadow: 0 10px 20px rgba(245, 158, 11, 0.3); }
+        .add-item-btn:hover { transform: translateY(-50%) scale(1.1); }
+
+        select[multiple] { height: 120px !important; }
         select[multiple] option:checked { background: #F59E0B !important; color: black; }
         .custom-scroll::-webkit-scrollbar { width: 3px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #222; }
@@ -33,47 +35,36 @@
     <div class="flex h-screen overflow-hidden">
         
         <aside id="main-sidebar" class="w-72 bg-[#080808] border-r border-white/5 flex flex-col relative">
-            <button onclick="UI.togglePivot()" class="absolute top-6 right-6 z-50 text-white/20 hover:text-amber-500 transition-colors">
-                <svg id="cog-icon" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+            <button onclick="UI.togglePivot()" class="absolute top-6 right-6 z-50 text-white/20 hover:text-amber-500">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
             </button>
 
             <div id="sidebar-content" class="p-8 h-full flex flex-col gap-8">
                 <h1 class="text-2xl font-black italic">ONEN<span class="text-amber-500">.</span></h1>
 
                 <div id="control-view" class="space-y-8 h-full flex flex-col">
-                    <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">+ New Order</button>
-                    
+                    <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase">+ New Order</button>
                     <div class="space-y-2">
-                        <label class="label">Magic Box</label>
-                        <textarea id="magic-box" class="w-full bg-black/40 border border-white/5 p-4 rounded-xl text-[11px] h-32 resize-none outline-none focus:border-amber-500/50" placeholder="Paste data..."></textarea>
-                        <button onclick="Core.processLocal()" class="w-full py-3 bg-amber-500 text-black font-black text-[9px] rounded-lg uppercase">Process</button>
+                        <label class="label">Magic Box (Auto-Detect)</label>
+                        <textarea id="magic-box" oninput="Core.processLocal()" class="w-full bg-black/40 border border-white/5 p-4 rounded-xl text-[11px] h-40 resize-none outline-none focus:border-amber-500" placeholder="Paste customer info..."></textarea>
                     </div>
-
-                    <div class="space-y-2 flex-grow overflow-y-auto custom-scroll pr-2">
-                        <label class="label">Batch History</label>
-                        <div id="batch-list" class="space-y-2"></div>
-                    </div>
-
-                    <button onclick="Core.exportPDF()" class="w-full py-4 border border-white/10 text-white/40 font-black text-[10px] rounded-xl hover:bg-white hover:text-black transition-all">GENERATE BATCH</button>
+                    <div class="flex-grow overflow-y-auto custom-scroll"><div id="batch-list" class="space-y-2"></div></div>
+                    <button onclick="Core.exportPDF()" class="w-full py-4 border border-white/10 text-white/40 font-black text-[10px] rounded-xl hover:bg-white hover:text-black">EXPORT BATCH</button>
                 </div>
 
                 <div id="inventory-view" class="space-y-6 h-full flex flex-col">
-                    <div class="bg-amber-500/5 p-4 rounded-2xl border border-amber-500/10">
+                    <div class="bg-white/5 p-4 rounded-xl border border-white/5">
                         <label class="label text-amber-500 mb-4">Stock Slab</label>
                         <input id="in-sku" class="glass-input mb-2" placeholder="SKU">
                         <input id="in-name" class="glass-input mb-2" placeholder="Product Name">
                         <input id="in-price" type="number" class="glass-input mb-2" placeholder="Price">
                         <div class="grid grid-cols-2 gap-2 mb-3">
-                            <input id="in-cols" class="glass-input text-[9px]" placeholder="Cols (A,B)">
-                            <input id="in-sizes" class="glass-input text-[9px]" placeholder="Sizes (S,M)">
+                            <input id="in-cols" class="glass-input text-[9px]" placeholder="Red, Blue">
+                            <input id="in-sizes" class="glass-input text-[9px]" placeholder="M, L, XL">
                         </div>
-                        <button onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[9px] rounded-lg uppercase">Update Inventory</button>
+                        <button onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[9px] rounded-lg">SAVE PRODUCT</button>
                     </div>
-
-                    <div class="flex-grow overflow-y-auto custom-scroll pr-2">
-                        <label class="label mb-4 opacity-30">Active Index</label>
-                        <div id="inventory-list" class="space-y-2"></div>
-                    </div>
+                    <div id="inventory-list" class="space-y-2 flex-grow overflow-y-auto custom-scroll pr-2"></div>
                 </div>
             </div>
         </aside>
@@ -89,45 +80,53 @@
         </main>
     </div>
 
-    <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100]">
-        <div class="bg-[#0c0c0c] border border-white/10 p-10 rounded-[40px] w-80">
-            <h2 id="m-title" class="text-2xl font-black italic text-white mb-6 uppercase text-center"></h2>
+    <div id="selector-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100]">
+        <div class="bg-[#111] border border-white/10 p-8 rounded-[40px] w-[500px] max-h-[80vh] flex flex-col">
+            <h2 class="text-xl font-black mb-6 text-center uppercase tracking-widest">Select Product</h2>
+            <div id="catalog-list" class="grid grid-cols-2 gap-3 overflow-y-auto custom-scroll p-2"></div>
+            <button onclick="UI.toggleSelector(false)" class="mt-6 text-[10px] text-white/30 uppercase">Cancel</button>
+        </div>
+    </div>
+
+    <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[110]">
+        <div class="bg-[#0c0c0c] border border-white/10 p-10 rounded-[40px] w-80 text-center">
+            <h2 id="m-title" class="text-2xl font-black italic text-white mb-6 uppercase"></h2>
             <div class="space-y-5">
                 <select id="m-col" multiple class="glass-input custom-scroll"></select>
                 <select id="m-sz" class="glass-input"></select>
                 <input id="m-qty" type="number" value="1" min="1" class="glass-input text-center text-xl font-bold">
-                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl">ADD TO MEMO</button>
-                <button onclick="UI.toggleModal(false)" class="w-full text-[10px] text-white/20 mt-2 uppercase">Close</button>
+                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl uppercase">Add to Row</button>
             </div>
         </div>
     </div>
 
     <template id="memo-tpl">
-        <div class="memo-card p-[15mm] flex flex-col relative" onclick="Core.selectMemo(this)">
-            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-6 right-6 text-red-400 opacity-10 hover:opacity-100 transition-opacity">×</button>
+        <div class="memo-card p-[15mm] flex flex-col" onclick="Core.selectMemo(this)">
+            <div class="no-print add-item-btn" onclick="UI.toggleSelector(true)">+</div>
+            
+            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-6 right-6 text-red-400 opacity-20 hover:opacity-100">×</button>
             <div class="flex justify-between border-b-[8px] border-black pb-4 mb-6">
-                <div><h2 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h2><p class="text-[9px] font-bold tracking-[0.3em] uppercase mt-1">Clothing the soul in silence</p></div>
+                <div><h2 class="text-6xl font-black italic leading-none tracking-tighter">ONEN</h2><p class="text-[9px] font-bold tracking-[0.3em] uppercase mt-1">Clothing the soul in silence</p></div>
                 <div class="text-right"><div class="text-3xl font-black m-id">#0000</div><div class="text-[10px] font-bold m-date text-slate-400"></div></div>
             </div>
-            <div class="grid grid-cols-2 gap-8 mb-8">
+            <div class="grid grid-cols-2 gap-8 mb-8 text-left">
                 <div>
-                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0 focus:ring-0" placeholder="NAME">
-                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="PHONE">
-                    <textarea class="m-addr w-full border-none h-16 text-[11px] p-0 mt-2 resize-none font-medium focus:ring-0" placeholder="ADDRESS"></textarea>
+                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0" placeholder="NAME">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0" placeholder="PHONE">
+                    <textarea class="m-addr w-full border-none h-16 text-[11px] p-0 mt-2 resize-none font-medium" placeholder="ADDRESS"></textarea>
                 </div>
                 <div class="text-right"><span class="m-tag border-[3px] border-black px-4 py-1 font-black uppercase italic text-[10px]">Inside Dhaka</span></div>
             </div>
             <div class="flex-grow">
                 <table class="w-full text-sm">
-                    <thead><tr class="border-b-2 border-black font-black text-[9px] uppercase text-left"><th class="py-2">SL</th><th class="w-1/2">Item</th><th class="text-center">Attr</th><th class="text-center">Qty</th><th class="text-right">Total</th><th class="no-print"></th></tr></thead>
-                    <tbody class="m-body font-bold italic text-[13px]"></tbody>
+                    <thead><tr class="border-b-2 border-black font-black text-[9px] uppercase text-left"><th class="py-2">SL</th><th class="w-1/2 text-left">Item</th><th class="text-center">Attr</th><th class="text-center">Qty</th><th class="text-right">Total</th><th class="no-print w-8"></th></tr></thead>
+                    <tbody class="m-body font-bold italic text-[13px] text-left"></tbody>
                 </table>
             </div>
             <div class="mt-10 flex justify-between items-end border-t border-slate-100 pt-6">
-                <div class="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">
+                <div class="text-[8px] font-bold text-slate-400 uppercase leading-relaxed text-left">
                     <p class="text-black font-black mb-1 italic">Studio Policy:</p>
-                    <p>• 7-Day Exchange Only</p>
-                    <p>• Tags must be intact</p>
+                    <p>• 7-Day Exchange Only • Tags must be intact</p>
                     <p>• Delivery charge must be payed if returned</p>
                 </div>
                 <div class="w-56 text-right font-black">
@@ -140,7 +139,7 @@
 
     <script>
         const Inventory = {
-            data: JSON.parse(localStorage.getItem('ONEN_INV_V85')) || [],
+            data: JSON.parse(localStorage.getItem('ONEN_INV_V86')) || [],
             save() {
                 const sku = document.getElementById('in-sku').value.trim().toUpperCase();
                 if(!sku) return;
@@ -151,10 +150,10 @@
                     cols: document.getElementById('in-cols').value.split(',').map(s => s.trim()),
                     sizes: document.getElementById('in-sizes').value.split(',').map(s => s.trim())
                 });
-                localStorage.setItem('ONEN_INV_V85', JSON.stringify(this.data));
+                localStorage.setItem('ONEN_INV_V86', JSON.stringify(this.data));
                 this.render(); this.clear();
             },
-            delete(sku) { if(confirm('Delete SKU?')) { this.data = this.data.filter(i => i.sku !== sku); localStorage.setItem('ONEN_INV_V85', JSON.stringify(this.data)); this.render(); } },
+            delete(sku) { if(confirm('Delete SKU?')) { this.data = this.data.filter(i => i.sku !== sku); localStorage.setItem('ONEN_INV_V86', JSON.stringify(this.data)); this.render(); } },
             edit(sku) {
                 const p = this.data.find(i => i.sku === sku);
                 document.getElementById('in-sku').value = p.sku; document.getElementById('in-name').value = p.name;
@@ -163,19 +162,21 @@
             },
             clear() { ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = ''); },
             render() {
-                document.getElementById('inventory-list').innerHTML = this.data.map(p => `
+                const list = p => `
                     <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center group">
-                        <div onclick="Inventory.edit('${p.sku}')" class="cursor-pointer flex-grow">
+                        <div onclick="${UI.isSelectorOpen ? `Core.prepItem('${p.sku}')` : `Inventory.edit('${p.sku}')`}" class="cursor-pointer flex-grow text-left">
                             <div class="text-[8px] text-amber-500 font-mono">[${p.sku}]</div>
                             <div class="text-[11px] font-bold uppercase">${p.name}</div>
                         </div>
-                        <button onclick="Inventory.delete('${p.sku}')" class="text-red-500 text-[9px] opacity-0 group-hover:opacity-100 transition-opacity">DEL</button>
-                    </div>`).join('');
+                        <button onclick="Inventory.delete('${p.sku}')" class="text-red-500 text-[9px] opacity-0 group-hover:opacity-100">DEL</button>
+                    </div>`;
+                document.getElementById('inventory-list').innerHTML = this.data.map(list).join('');
+                document.getElementById('catalog-list').innerHTML = this.data.map(list).join('');
             }
         };
 
         const Core = {
-            seq: 9000, activeIdx: 0, pending: null,
+            seq: 1000, activeIdx: 0, pending: null,
             init() { Inventory.render(); this.createNewMemo(); },
             createNewMemo() {
                 const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
@@ -195,41 +196,34 @@
                 raw = raw.replace(/[০-৯]/g, d => ({'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'}[d]));
                 const phone = (raw.match(/01[3-9]\d{8}/) || [""])[0];
                 const lines = raw.split('\n').filter(l => l.trim().length > 0);
-                let name = lines[0] ? lines[0].replace(phone,'').replace(/[:,-]/g,'').trim() : "CUSTOMER";
-                let address = lines.slice(1).join(', ').replace(phone,'').trim();
                 const active = this.getActive();
-                active.querySelector('.m-name').value = name.toUpperCase();
-                active.querySelector('.m-phone').value = phone;
-                active.querySelector('.m-addr').value = address;
-                Inventory.data.forEach(item => { if(raw.toUpperCase().includes(item.sku.toUpperCase())) this.prepItem(item.sku); });
-                box.value = "";
+                if(lines[0]) active.querySelector('.m-name').value = lines[0].replace(phone,'').replace(/[:,-]/g,'').trim().toUpperCase();
+                if(phone) active.querySelector('.m-phone').value = phone;
+                if(lines.length > 1) active.querySelector('.m-addr').value = lines.slice(1).join(', ').replace(phone,'').trim();
+                Inventory.data.forEach(item => { if(raw.toUpperCase().includes(item.sku.toUpperCase())) { this.prepItem(item.sku); box.value = ""; } });
             },
             prepItem(sku) {
                 this.pending = Inventory.data.find(i => i.sku === sku);
                 document.getElementById('m-title').innerText = this.pending.name;
                 document.getElementById('m-col').innerHTML = this.pending.cols.map(c => `<option value="${c}">${c}</option>`).join('');
                 document.getElementById('m-sz').innerHTML = this.pending.sizes.map(s => `<option value="${s}">${s}</option>`).join('');
-                UI.toggleModal(true);
+                UI.toggleSelector(false); UI.toggleModal(true);
             },
             confirmInject() {
-                const active = this.getActive();
                 const colorOptions = document.getElementById('m-col').selectedOptions;
                 const colorArray = Array.from(colorOptions).map(opt => opt.value);
-                const colors = colorArray.join(', ');
-                const sz = document.getElementById('m-sz').value;
                 const qtyPerColor = parseInt(document.getElementById('m-qty').value) || 1;
                 const totalQty = colorArray.length * qtyPerColor;
-                const totalPrice = this.pending.price * totalQty;
                 const row = `
                     <tr class="border-b border-gray-100">
                         <td class="py-4 text-slate-300"></td>
-                        <td class="py-4">${this.pending.name} <span class="text-[9px] text-slate-400 font-mono">[${this.pending.sku}]</span></td>
-                        <td class="text-center">${colors}/${sz}</td>
+                        <td class="py-4 text-left">${this.pending.name} <span class="text-[9px] text-slate-400 font-mono">[${this.pending.sku}]</span></td>
+                        <td class="text-center">${colorArray.join(', ')}/${document.getElementById('m-sz').value}</td>
                         <td class="text-center">${totalQty}</td>
-                        <td class="text-right font-black"><span class="r-p">${totalPrice}</span></td>
+                        <td class="text-right font-black"><span class="r-p">${this.pending.price * totalQty}</span></td>
                         <td class="no-print text-center"><button onclick="Core.removeRow(this)" class="text-red-400 font-black px-2">×</button></td>
                     </tr>`;
-                active.querySelector('.m-body').insertAdjacentHTML('beforeend', row);
+                this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
                 this.recalc(); UI.toggleModal(false);
             },
             removeRow(btn) { btn.closest('tr').remove(); this.recalc(); },
@@ -253,8 +247,10 @@
         };
 
         const UI = {
+            isSelectorOpen: false,
             togglePivot() { document.getElementById('main-sidebar').classList.toggle('pivot-active'); },
-            toggleModal(s) { document.getElementById('modal-overlay').style.display = s ? 'flex' : 'none'; }
+            toggleModal(s) { document.getElementById('modal-overlay').style.display = s ? 'flex' : 'none'; },
+            toggleSelector(s) { this.isSelectorOpen = s; document.getElementById('selector-modal').style.display = s ? 'flex' : 'none'; }
         };
         window.onload = () => Core.init();
     </script>
