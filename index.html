@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | v100.0</title>
+    <title>ONEN STUDIO | v100.1</title>
     
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -16,55 +16,61 @@
         body { font-family: 'Plus Jakarta Sans', sans-serif; background: #020202; color: white; overflow: hidden; margin: 0; }
         
         .glass { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; }
-        .view-panel { transition: opacity 0.4s var(--smooth), transform 0.4s var(--smooth); }
+        .view-panel { transition: 0.4s var(--smooth); }
         .view-hidden { display: none !important; opacity: 0; transform: translateY(10px); }
+
+        /* Status Colors */
+        .st-pending { color: #f59e0b; border-color: #f59e0b; }
+        .st-paid { color: #10b981; border-color: #10b981; }
+        .st-returned { color: #ef4444; border-color: #ef4444; }
 
         /* Memo Styling */
         .memo-card { 
             width: 210mm; height: 148.5mm; background: white; color: black; 
             margin: 0 auto 40px auto; display: flex; flex-direction: column; padding: 12mm;
-            position: relative; transition: 0.5s var(--smooth); transform: scale(0.98); opacity: 0.3;
+            position: relative; transition: 0.6s var(--smooth); transform: scale(0.97); opacity: 0.2;
         }
-        .memo-card.active { transform: scale(1); opacity: 1; box-shadow: 0 40px 80px rgba(0,0,0,0.5); }
+        .memo-card.active { transform: scale(1); opacity: 1; box-shadow: 0 40px 100px rgba(0,0,0,0.6); }
 
-        /* Glowing Dustbin */
         .dustbin {
             position: absolute; top: 20px; right: 20px; width: 36px; height: 36px;
             display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; color: rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s;
+            border-radius: 50%; color: rgba(0,0,0,0.05); cursor: pointer; transition: 0.3s;
         }
         .dustbin:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); box-shadow: 0 0 15px rgba(239, 68, 68, 0.3); }
 
-        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ef4444; }
-        .online { background: #10B981; box-shadow: 0 0 8px #10B981; }
+        /* Sync Pulse */
+        #sync-pulse { width: 6px; height: 6px; border-radius: 50%; background: #10B981; opacity: 0; transition: 0.3s; }
+        .syncing { opacity: 1 !important; transform: scale(1.5); box-shadow: 0 0 10px #10B981; }
 
         @media print { 
             .no-print { display: none !important; } 
-            body { background: white; overflow: visible; }
-            .memo-card { opacity: 1!important; transform: scale(1)!important; margin: 0!important; box-shadow: none!important; page-break-after: always; } 
+            body { background: white; }
+            .memo-card { opacity: 1!important; transform: scale(1)!important; margin: 0!important; page-break-after: always; } 
         }
     </style>
 </head>
 <body>
 
     <div class="flex h-screen overflow-hidden">
-        <aside class="w-20 bg-[#080808] border-r border-white/5 flex flex-col items-center py-8 gap-10 no-print">
-            <div class="text-amber-500 font-black italic text-xl">O</div>
-            <nav class="flex flex-col gap-6">
-                <button onclick="UI.show('ops')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition" title="Entry"><i class="fa-solid fa-pen-nib opacity-40 hover:opacity-100"></i></button>
-                <button onclick="UI.show('inv')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition" title="Inventory"><i class="fa-solid fa-box opacity-40 hover:opacity-100"></i></button>
-                <button onclick="UI.show('hist')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition" title="History"><i class="fa-solid fa-clock-rotate-left opacity-40 hover:opacity-100"></i></button>
+        <aside class="w-24 bg-[#080808] border-r border-white/5 flex flex-col items-center py-8 no-print">
+            <div class="mb-10 text-center">
+                <h1 class="text-amber-500 font-black italic text-xl tracking-tighter">ONEN</h1>
+                <div id="sync-pulse" class="mx-auto mt-2"></div>
+            </div>
+            
+            <nav class="flex flex-col gap-8">
+                <button onclick="UI.show('ops')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-pen-nib opacity-40 hover:opacity-100"></i></button>
+                <button onclick="UI.show('inv')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-box opacity-40 hover:opacity-100"></i></button>
+                <button onclick="UI.show('hist')" class="w-12 h-12 flex items-center justify-center rounded-xl hover:bg-white/5 transition"><i class="fa-solid fa-clock-rotate-left opacity-40 hover:opacity-100"></i></button>
             </nav>
-            <div id="cloud-status" class="status-dot mt-auto"></div>
         </aside>
 
         <aside class="w-72 bg-[#050505] border-r border-white/5 p-6 overflow-y-auto no-print">
-            <h2 class="text-[10px] font-black uppercase tracking-widest opacity-30 mb-6">Studio Control</h2>
-            
-            <div id="ops-view" class="view-panel space-y-5">
+            <div id="ops-view" class="view-panel space-y-6">
                 <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-tighter hover:bg-amber-500 transition">+ New Memo</button>
-                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none" placeholder="Paste Customer Data..."></textarea>
-                <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search SKU...">
+                <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-24 p-4 text-[11px] outline-none" placeholder="Paste data here..."></textarea>
+                <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-3 text-[10px]" placeholder="Search Product...">
                 <div id="cat-list" class="space-y-2"></div>
             </div>
 
@@ -73,9 +79,9 @@
                     <input id="in-sku" class="glass w-full p-2 text-[10px]" placeholder="SKU">
                     <input id="in-name" class="glass w-full p-2 text-[10px]" placeholder="Product Name">
                     <input id="in-price" type="number" class="glass w-full p-2 text-[10px]" placeholder="Price">
-                    <input id="in-cols" class="glass w-full p-2 text-[10px]" placeholder="Colors (C1, C2)">
-                    <input id="in-sizes" class="glass w-full p-2 text-[10px]" placeholder="Sizes (S, M, L)">
-                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-lg">Update Cloud</button>
+                    <input id="in-cols" class="glass w-full p-2 text-[10px]" placeholder="Colors (Comma separated)">
+                    <input id="in-sizes" class="glass w-full p-2 text-[10px]" placeholder="Sizes">
+                    <button onclick="Inventory.save()" class="w-full py-3 bg-amber-500 text-black font-black text-[10px] rounded-lg">Add to Cloud</button>
                 </div>
                 <div id="inv-list" class="space-y-1"></div>
             </div>
@@ -83,25 +89,25 @@
             <div id="hist-view" class="view-panel view-hidden space-y-2"></div>
         </aside>
 
-        <main class="flex-grow bg-[#020202] overflow-y-auto p-12 scroll-smooth">
+        <main class="flex-grow bg-[#020202] overflow-y-auto p-12">
             <div id="workspace" class="pb-40"></div>
             
-            <div class="fixed bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/90 backdrop-blur-xl p-3 rounded-2xl border border-white/10 no-print shadow-2xl">
+            <div class="fixed bottom-8 left-[58%] -translate-x-1/2 flex items-center gap-2 bg-black/90 backdrop-blur-xl p-3 rounded-2xl border border-white/10 no-print shadow-2xl">
                 <button onclick="Core.setShip(60, 'Dhaka')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500 transition">৳60</button>
                 <button onclick="Core.setShip(70, 'Suburban')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500 transition">৳70</button>
                 <button onclick="Core.setShip(120, 'Outside')" class="px-4 py-2 text-[10px] font-black hover:text-amber-500 transition">৳120</button>
                 <div class="w-[1px] h-6 bg-white/10 mx-2"></div>
-                <button onclick="window.print()" class="px-6 py-2 bg-white text-black text-[10px] font-black rounded-lg">Print Batch</button>
+                <button onclick="window.print()" class="px-6 py-2 bg-white text-black text-[10px] font-black rounded-lg">PRINT BATCH</button>
             </div>
         </main>
     </div>
 
     <div id="modal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-[100]">
         <div class="bg-[#111] p-10 rounded-[30px] w-80 text-center border border-white/10">
-            <h2 id="m-title" class="text-lg font-black uppercase italic text-amber-500 mb-6"></h2>
+            <h2 id="m-title" class="text-lg font-black uppercase text-amber-500 mb-6"></h2>
             <select id="m-col" multiple class="glass w-full h-24 p-2 text-[11px] mb-4"></select>
             <select id="m-sz" class="glass w-full p-3 text-[11px] mb-8"></select>
-            <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-xl text-[10px] uppercase">Add to Table</button>
+            <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-xl text-[10px] uppercase">Add to Memo</button>
             <button onclick="UI.modal(false)" class="mt-4 text-[9px] opacity-20 font-bold uppercase">Close</button>
         </div>
     </div>
@@ -117,18 +123,19 @@
                 </div>
                 <div class="text-right">
                     <div class="text-2xl font-black m-id">#0000</div>
-                    <div class="text-[10px] font-bold m-date text-slate-400 mt-1"></div>
+                    <div class="text-[10px] font-bold m-date text-slate-400 mt-1 uppercase"></div>
                 </div>
             </div>
 
             <div class="grid grid-cols-2 gap-8 mb-8">
                 <div class="space-y-1">
-                    <input class="m-name w-full border-none font-black text-xl p-0 focus:ring-0 uppercase" placeholder="NAME">
-                    <input class="m-phone w-full border-none font-bold text-md p-0 focus:ring-0" placeholder="PHONE">
-                    <textarea class="m-addr w-full border-none text-[11px] h-12 p-0 resize-none focus:ring-0" placeholder="ADDRESS"></textarea>
+                    <input class="m-name w-full border-none font-black text-xl p-0 focus:ring-0 uppercase" placeholder="NAME" oninput="Core.cloudSync()">
+                    <input class="m-phone w-full border-none font-bold text-md p-0 focus:ring-0" placeholder="PHONE" oninput="Core.cloudSync()">
+                    <textarea class="m-addr w-full border-none text-[11px] h-12 p-0 resize-none focus:ring-0" placeholder="ADDRESS" oninput="Core.cloudSync()"></textarea>
                 </div>
-                <div class="text-right">
-                    <span class="m-tag border-[2px] border-black px-4 py-1 text-[10px] font-black uppercase">INSIDE DHAKA</span>
+                <div class="text-right space-y-2">
+                    <span class="m-tag border-[2px] border-black px-4 py-1 text-[10px] font-black uppercase inline-block">INSIDE DHAKA</span><br>
+                    <button onclick="Core.toggleStatus(this)" class="m-status no-print border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-pending">PENDING</button>
                 </div>
             </div>
 
@@ -165,7 +172,6 @@
                 db.ref('inventory').on('value', snap => {
                     this.data = snap.val() ? Object.values(snap.val()) : [];
                     this.render();
-                    document.getElementById('cloud-status').classList.add('online');
                 });
             },
             save() {
@@ -196,7 +202,7 @@
                 });
             },
             createNewMemo() {
-                this.injectMemo({ id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', date: new Date().toLocaleDateString('en-GB') });
+                this.injectMemo({ id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'INSIDE DHAKA', status: 'PENDING', date: new Date().toLocaleDateString('en-GB') });
             },
             injectMemo(data) {
                 const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
@@ -208,6 +214,11 @@
                 card.querySelector('.m-addr').value = data.addr || '';
                 card.querySelector('.m-s-val').innerText = data.ship || 0;
                 card.querySelector('.m-tag').innerText = data.tag || 'INSIDE DHAKA';
+                
+                const stBtn = card.querySelector('.m-status');
+                stBtn.innerText = data.status || 'PENDING';
+                stBtn.className = `m-status no-print border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-${(data.status || 'PENDING').toLowerCase()}`;
+
                 document.getElementById('workspace').prepend(card);
                 this.selectMemo(card);
             },
@@ -243,9 +254,14 @@
                     <td class="text-right font-black r-price">${this.pending.price}</td>
                     <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-400 px-2">×</button></td>
                 </tr>`;
-                // FIX: Append instead of overwrite
                 this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
                 this.recalc(); UI.modal(false);
+            },
+            toggleStatus(btn) {
+                const cycle = { 'PENDING': 'PAID', 'PAID': 'RETURNED', 'RETURNED': 'PENDING' };
+                btn.innerText = cycle[btn.innerText];
+                btn.className = `m-status no-print border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-${btn.innerText.toLowerCase()}`;
+                this.cloudSync();
             },
             setShip(v, l) {
                 const a = this.getActive();
@@ -262,15 +278,20 @@
             },
             deleteMemo(e, b) { e.stopPropagation(); if(confirm('Delete?')) { b.closest('.memo-card').remove(); this.cloudSync(); this.updateHistory(); } },
             cloudSync() {
+                const pulse = document.getElementById('sync-pulse');
+                pulse.classList.add('syncing');
                 const memos = Array.from(document.querySelectorAll('.memo-card')).map(m => ({
                     id: m.querySelector('.m-id').innerText, name: m.querySelector('.m-name').value, phone: m.querySelector('.m-phone').value,
-                    addr: m.querySelector('.m-addr').value, ship: m.querySelector('.m-s-val').innerText, tag: m.querySelector('.m-tag').innerText, date: m.querySelector('.m-date').innerText
+                    addr: m.querySelector('.m-addr').value, ship: m.querySelector('.m-s-val').innerText, tag: m.querySelector('.m-tag').innerText, 
+                    status: m.querySelector('.m-status').innerText, date: m.querySelector('.m-date').innerText
                 }));
-                db.ref('session_memos').set(memos);
+                db.ref('session_memos').set(memos).then(() => {
+                    setTimeout(() => pulse.classList.remove('syncing'), 500);
+                });
             },
             updateHistory() {
                 document.getElementById('hist-view').innerHTML = Array.from(document.querySelectorAll('.memo-card')).map((c, i) => `
-                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="glass p-3 cursor-pointer ${i==this.activeIdx?'border-amber-500':'opacity-30'} text-[9px] font-black">${c.querySelector('.m-id').innerText} - ${c.querySelector('.m-name').value || 'EMPTY'}</div>`).join('');
+                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="glass p-3 cursor-pointer ${i==this.activeIdx?'border-amber-500':'opacity-30'} text-[9px] font-black uppercase">${c.querySelector('.m-id').innerText} - ${c.querySelector('.m-name').value || 'New Entry'}</div>`).join('');
             }
         };
 
