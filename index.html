@@ -63,7 +63,6 @@
         .pill-btn:hover { border-color: rgba(255,255,255,0.3); color: white; }
         .pill-btn.active-state { background: white; color: black; border-color: white; }
         
-        /* Status Colors */
         .st-pending { color: #64748b; border-color: #64748b; }
         .st-unpaid { color: #d97706; border-color: #d97706; }
         .st-paid { color: #059669; border-color: #059669; }
@@ -108,12 +107,11 @@
 <body>
 
     <div class="flex h-screen overflow-hidden no-print">
-        <!-- Sidebar Navigation -->
         <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-8 custom-scroll overflow-y-auto">
             <div class="flex justify-between items-start">
                 <div class="text-amber-500 font-black italic text-3xl tracking-tighter">ONEN STUDIO.</div>
                 <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold opacity-80 mt-2">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Checking...</span>
+                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Init...</span>
                 </div>
             </div>
             
@@ -121,7 +119,6 @@
                 <i class="fa-solid fa-plus"></i> Create New Memo
             </button>
 
-            <!-- Order Status Logic -->
             <div class="space-y-4">
                 <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Lifecycle Status</label>
                 <div class="flex flex-wrap gap-2" id="status-toggles">
@@ -133,7 +130,6 @@
                 </div>
             </div>
 
-            <!-- Parcel Type Logic -->
             <div class="space-y-4">
                 <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Parcel Type</label>
                 <div class="flex gap-2">
@@ -142,13 +138,12 @@
                 </div>
             </div>
 
-            <!-- Shipping Tiers -->
             <div class="space-y-4">
                 <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Shipping Zone</label>
                 <div class="grid grid-cols-2 gap-2" id="shipping-toggles">
                     <button data-action="setShip" data-val="60" data-tag="DHAKA" class="pill-btn">Dhaka (60)</button>
                     <button data-action="setShip" data-val="100" data-tag="SUB-URBAN" class="pill-btn">Suburban (100)</button>
-                    <button data-action="setShip" data-val="120" data-tag="OUTSIDE" class="pill-btn col-span-2">Outside Dhaka (120)</button>
+                    <button data-action="setShip" data-val="120" data-tag="OUTSIDE" class="pill-btn col-span-2">Outside (120)</button>
                 </div>
             </div>
 
@@ -176,11 +171,9 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="flex-grow bg-[#0a0a0a] overflow-y-auto p-12 relative no-scrollbar">
             <div id="workspace" class="max-w-4xl mx-auto pb-48"></div>
 
-            <!-- Bottom Floating Bar -->
             <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/5 backdrop-blur-3xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl z-50">
                 <div class="flex flex-col">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-tighter mb-1">Quick Auto-Fill</label>
@@ -193,13 +186,12 @@
         </main>
     </div>
 
-    <!-- Product Picker -->
     <div id="picker-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100] p-10 no-print">
         <div class="bg-[#111] border border-white/10 p-12 rounded-[2rem] w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <div class="flex justify-between items-center mb-10">
                 <div>
                     <h3 class="text-3xl font-black uppercase tracking-tighter text-white">Inventory Picker</h3>
-                    <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Select a variant to add to current memo</p>
+                    <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Select a variant to add</p>
                 </div>
                 <button id="btn-close-picker" class="opacity-30 hover:opacity-100 text-white text-4xl">&times;</button>
             </div>
@@ -207,7 +199,6 @@
         </div>
     </div>
 
-    <!-- MEMO TEMPLATE -->
     <template id="memo-tpl">
         <div class="memo-card">
             <div class="flex justify-between border-b-[6px] border-black pb-4 mb-8">
@@ -283,7 +274,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = JSON.parse(__firebase_config);
@@ -308,7 +299,18 @@
         const Engine = {
             async init() {
                 this.updateSyncStatus('offline', 'Connecting...');
-                await signInAnonymously(auth);
+                
+                try {
+                    // Rule 3: Auth Before Queries
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    this.updateSyncStatus('offline', 'Auth Failed');
+                }
+
                 onAuthStateChanged(auth, (u) => {
                     user = u;
                     if (user) {
@@ -316,29 +318,39 @@
                         this.setupListener();
                     }
                 });
+                
                 this.bindEvents();
             },
 
             updateSyncStatus(status, label) {
                 const el = document.getElementById('sync-indicator');
+                if(!el) return;
                 el.className = `text-[10px] flex items-center gap-1.5 font-bold opacity-80 mt-2 ${status}`;
                 el.querySelector('span').innerText = label;
             },
 
             setupListener() {
-                const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'memos'));
+                if (!user) return;
+                
+                // Rule 1: Strict Paths
+                const collectionPath = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
+                const q = query(collectionPath);
+                
                 onSnapshot(q, (snap) => {
                     this.updateSyncStatus('online', 'Live');
                     const data = [];
-                    snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
-                    memos = data.sort((a, b) => b.createdAt - a.createdAt);
+                    snap.forEach(doc => {
+                        data.push({ ...doc.data(), docId: doc.id });
+                    });
+                    
+                    memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                     
                     if (memos.length > 0 && !activeDocId) {
                         activeDocId = memos[0].docId;
                     }
                     this.render();
                 }, (err) => {
-                    this.updateSyncStatus('offline', 'Sync Error');
+                    this.updateSyncStatus('offline', 'Path Denied');
                     console.error("Firestore error:", err);
                 });
             },
@@ -349,7 +361,6 @@
                 document.getElementById('btn-close-picker').onclick = () => this.closePicker();
                 document.getElementById('quick-parse').oninput = (e) => this.parse(e.target.value);
                 
-                // Sidebar Action Listeners
                 document.querySelectorAll('[data-action]').forEach(btn => {
                     btn.onclick = () => {
                         if (!activeDocId) return;
@@ -383,8 +394,13 @@
                     items: [],
                     createdAt: Date.now()
                 };
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
-                activeDocId = docId;
+                
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
+                    activeDocId = docId;
+                } catch (e) {
+                    console.error("Create failed:", e);
+                }
             },
 
             render() {
@@ -394,13 +410,17 @@
                 historyList.innerHTML = '';
 
                 if (memos.length === 0) {
-                    workspace.innerHTML = `<div class="text-center py-20 opacity-20 font-black uppercase tracking-[0.5em]">No Active Memos</div>`;
+                    workspace.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-40 opacity-20 group">
+                            <div class="text-6xl mb-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-box-open"></i></div>
+                            <div class="font-black uppercase tracking-[0.5em]">No Active Memos</div>
+                        </div>
+                    `;
                     return;
                 }
 
                 memos.forEach((m) => {
                     const isActive = m.docId === activeDocId;
-                    
                     const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
                     const card = tpl.querySelector('.memo-card');
                     if (isActive) card.classList.add('active');
@@ -430,7 +450,7 @@
 
                     const rows = card.querySelector('.m-rows');
                     let subtotal = 0;
-                    m.items.forEach((item, idx) => {
+                    (m.items || []).forEach((item, idx) => {
                         subtotal += (item.price * item.qty);
                         const tr = document.createElement('tr');
                         tr.className = "border-b border-black/5 group";
@@ -524,7 +544,11 @@
             async updateMemo(data, specificId = null) {
                 const id = specificId || activeDocId;
                 if (!user || !id) return;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), data);
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), data);
+                } catch(e) {
+                    console.error("Update failed:", e);
+                }
             },
 
             async deleteMemo(id) {
@@ -561,7 +585,7 @@
                 grid.querySelectorAll('.add-v-btn').forEach(btn => {
                     btn.onclick = () => {
                         const m = memos.find(m => m.docId === activeDocId);
-                        const items = [...m.items, {
+                        const items = [...(m.items || []), {
                             name: btn.dataset.name,
                             variant: btn.dataset.var,
                             price: parseInt(btn.dataset.price),
@@ -580,42 +604,31 @@
             parse(val) {
                 if (!val || !activeDocId) return;
                 const lines = val.split('\n').map(l => l.trim()).filter(l => l);
-                const phone = val.match(/01[3-9]\d{8}/)?.[0] || "";
+                const phoneMatch = val.match(/01[3-9]\d{8}/);
+                const phone = phoneMatch ? phoneMatch[0] : "";
                 
                 if (lines.length > 0) {
                     const name = lines[0].toUpperCase();
                     const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
                     this.updateMemo({ name, phone, addr });
-                    
-                    setTimeout(() => { document.getElementById('quick-parse').value = ''; }, 2000);
+                    setTimeout(() => { document.getElementById('quick-parse').value = ''; }, 1000);
                 }
             },
 
             exportCSV(provider) {
                 if (memos.length === 0) return;
-                
                 let headers = [];
                 let csvData = [];
 
                 if (provider === 'steadfast') {
                     headers = ["Invoice","Name","Contact","Address","Amount","Note"];
-                    csvData = memos.map(m => {
-                        const total = m.items.reduce((a, b) => a + (b.price * b.qty), 0) + m.ship;
-                        return [m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), total, m.instructions];
-                    });
+                    csvData = memos.map(m => [m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.instructions]);
                 } else if (provider === 'pathao') {
                     headers = ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"];
-                    csvData = memos.map(m => {
-                        const total = m.items.reduce((a, b) => a + (b.price * b.qty), 0) + m.ship;
-                        return ["ONEN STUDIO", m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), m.tag, total, m.instructions];
-                    });
+                    csvData = memos.map(m => ["ONEN STUDIO", m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), m.tag, (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.instructions]);
                 } else if (provider === 'carrybee') {
-                    // Carrybee Standard: Customer Name, Phone, Address, Cash Amount, Order ID, Note
                     headers = ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
-                    csvData = memos.map(m => {
-                        const total = m.items.reduce((a, b) => a + (b.price * b.qty), 0) + m.ship;
-                        return [m.name, m.phone, m.addr.replace(/,/g, ' '), total, m.id, m.instructions];
-                    });
+                    csvData = memos.map(m => [m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.id, m.instructions]);
                 }
 
                 const csvContent = [headers.join(','), ...csvData.map(r => r.join(','))].join('\n');
