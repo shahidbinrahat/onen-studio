@@ -3,262 +3,473 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | Logistics Engine</title>
+    <title>ONEN STUDIO | v100.6 Logistics</title>
     
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
         
         :root { 
             --accent: #F59E0B; 
             --smooth: cubic-bezier(0.16, 1, 0.3, 1);
+            --liquid: cubic-bezier(0.7, 0, 0.3, 1);
         }
 
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: #000; 
-            color: #fff;
+            background: #000; 
+            color: white; 
+            overflow: hidden; 
+            margin: 0;
             -webkit-font-smoothing: antialiased;
         }
-
-        /* Apple Glassmorphism */
+        
         .glass { 
-            background: rgba(255, 255, 255, 0.03); 
-            backdrop-filter: blur(25px) saturate(180%);
-            -webkit-backdrop-filter: blur(25px) saturate(180%);
-            border: 1px solid rgba(255, 255, 255, 0.08); 
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+            background: rgba(255,255,255,0.02); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 16px; 
+            transition: all 0.4s var(--smooth); 
         }
 
-        .input-glass {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
-            transition: all 0.3s var(--smooth);
+        /* Memo Styles */
+        .memo-card { 
+            width: 210mm; height: 148.5mm; background: white; color: black; 
+            margin: 0 auto 40px auto; display: flex; flex-direction: column; padding: 12mm;
+            position: relative; transition: all 0.6s var(--smooth); transform: scale(0.96); opacity: 0.3;
+            box-sizing: border-box; overflow: hidden; border-radius: 4px;
+        }
+        .memo-card.active { 
+            transform: scale(1); opacity: 1; 
+            box-shadow: 0 40px 80px -15px rgba(0,0,0,0.6), 0 0 0 2px rgba(245, 158, 11, 0.2); 
         }
 
-        .input-glass:focus {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: var(--accent);
-            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
-            outline: none;
+        .dustbin {
+            position: absolute; top: 15px; right: 15px; width: 35px; height: 35px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 50%; color: rgba(0,0,0,0.1); cursor: pointer; transition: 0.3s var(--smooth); z-index: 50;
         }
+        .dustbin:hover { color: #ef4444; background: rgba(239, 68, 68, 0.08); transform: scale(1.1); }
 
-        .btn-primary {
-            background: #fff;
-            color: #000;
-            font-weight: 800;
-            transition: all 0.4s var(--smooth);
+        /* Status colors */
+        .st-pending { color: #888; border-color: #eee; }
+        .st-unpaid { color: #f59e0b; border-color: #f59e0b; }
+        .st-paid { color: #10b981; border-color: #10b981; }
+        .st-returned { color: #ef4444; border-color: #ef4444; }
+
+        .type-regular { background: black; color: white; }
+        .type-exchange { background: #f59e0b; color: black; }
+
+        /* Interactive */
+        button:active { transform: scale(0.94); }
+        .sidebar-item.active { 
+            border-left: 3px solid #f59e0b; 
+            background: rgba(245, 158, 11, 0.05); 
+            opacity: 1 !important;
         }
-
-        .btn-primary:hover {
-            background: var(--accent);
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.4);
-        }
-
-        .btn-primary:active { transform: scale(0.96); }
-
-        /* Animation */
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .animate-slide { animation: slideUp 0.8s var(--smooth) forwards; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; }
+            #workspace { padding: 0 !important; }
+            .memo-card { opacity: 1!important; transform: scale(1)!important; margin: 0!important; box-shadow: none!important; page-break-inside: avoid; } 
+        }
     </style>
 </head>
-<body class="min-h-screen p-6 md:p-12">
+<body>
 
-    <header class="max-w-7xl mx-auto mb-16 flex justify-between items-end animate-slide">
-        <div>
-            <h1 class="text-4xl font-black tracking-tighter italic text-white leading-none">ONEN STUDIO <span class="text-amber-500">ENGINE</span></h1>
-            <p class="text-white/30 text-[10px] uppercase font-bold tracking-[0.4em] mt-3">Global Logistics Orchestration v2.0</p>
-        </div>
-        <div id="connection-status" class="glass px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
-            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div> Connecting...
-        </div>
-    </header>
+    <div class="flex h-screen overflow-hidden">
+        <!-- Sidebar Navigation -->
+        <aside class="w-20 bg-[#000] border-r border-white/5 flex flex-col items-center py-10 no-print z-50">
+            <h1 class="text-amber-500 font-black italic text-2xl tracking-tighter mb-16 select-none">O.</h1>
+            <nav class="flex flex-col gap-10">
+                <button onclick="UI.show('ops')" class="nav-btn group" title="Operations">
+                    <i class="fa-solid fa-plus-circle text-xl opacity-20 group-hover:opacity-100 group-hover:text-amber-500 transition-all"></i>
+                </button>
+                <button onclick="UI.show('hist')" class="nav-btn group" title="History">
+                    <i class="fa-solid fa-list-ul text-xl opacity-20 group-hover:opacity-100 group-hover:text-amber-500 transition-all"></i>
+                </button>
+            </nav>
+            <div id="sync-dot" class="w-1.5 h-1.5 rounded-full bg-amber-500 mt-auto opacity-0 transition-all duration-700"></div>
+        </aside>
 
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
-        
-        <!-- Sidebar Controls -->
-        <section class="lg:col-span-4 space-y-8 animate-slide" style="animation-delay: 0.1s">
-            <div class="glass p-8 rounded-[2.5rem]">
-                <h2 class="text-xs font-black uppercase tracking-widest text-amber-500 mb-8 flex items-center gap-3">
-                    <i class="fa-solid fa-plus-circle"></i> New Dispatch
-                </h2>
-                <form id="shipment-form" class="space-y-6">
-                    <div class="space-y-2">
-                        <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Origin Terminal</label>
-                        <input type="text" id="origin" required class="input-glass w-full p-4 text-sm font-medium" placeholder="Shanghai CNSHA">
-                    </div>
-                    <div class="space-y-2">
-                        <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Destination Hub</label>
-                        <input type="text" id="destination" required class="input-glass w-full p-4 text-sm font-medium" placeholder="Rotterdam NLRTM">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Weight (kg)</label>
-                            <input type="number" id="weight" required class="input-glass w-full p-4 text-sm font-medium">
-                        </div>
-                        <div class="space-y-2">
-                            <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Priority</label>
-                            <select id="priority" class="input-glass w-full p-4 text-sm font-medium appearance-none">
-                                <option value="Standard">Standard</option>
-                                <option value="Express">Express</option>
-                                <option value="Critical">Critical</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit" class="w-full btn-primary py-4 rounded-2xl text-[11px] uppercase tracking-[0.2em] mt-4">
-                        Initialize Dispatch
-                    </button>
-                </form>
-            </div>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-[9px] font-black opacity-30 uppercase tracking-widest mb-1">In Transit</p>
-                    <p id="stat-transit" class="text-3xl font-black italic">0</p>
-                </div>
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-[9px] font-black opacity-30 uppercase tracking-widest mb-1">Delivered</p>
-                    <p id="stat-delivered" class="text-3xl font-black italic text-amber-500">0</p>
-                </div>
-            </div>
-        </section>
-
-        <!-- Manifest Display -->
-        <section class="lg:col-span-8 animate-slide" style="animation-delay: 0.2s">
-            <div class="glass p-8 rounded-[2.5rem] min-h-[600px] flex flex-col">
-                <div class="flex justify-between items-center mb-10">
-                    <h2 class="text-xs font-black uppercase tracking-widest">Live Manifest</h2>
-                    <div class="flex gap-2">
-                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
-                    </div>
+        <!-- Control Panel -->
+        <aside class="w-80 bg-[#000] border-r border-white/5 p-8 overflow-y-auto no-print">
+            <div id="ops-view" class="view-panel space-y-8">
+                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 transition-all">
+                    New Order Memo
+                </button>
+                
+                <div class="space-y-3">
+                    <label class="text-[10px] uppercase font-bold opacity-20 ml-1 tracking-widest">Auto-Parser</label>
+                    <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-32 p-4 text-[12px] outline-none resize-none" placeholder="Paste order details..."></textarea>
                 </div>
                 
-                <div id="shipment-list" class="space-y-4 flex-grow overflow-y-auto pr-2">
-                    <!-- Shimmer -->
-                    <div class="h-24 w-full glass rounded-3xl opacity-20 animate-pulse"></div>
+                <div class="pt-6 border-t border-white/5">
+                    <div class="relative">
+                        <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-4 pl-10 text-[11px]" placeholder="Search items...">
+                        <i class="fa-solid fa-search absolute left-4 top-4.5 text-[10px] opacity-20"></i>
+                    </div>
+                    <div id="cat-list" class="space-y-3 h-[45vh] overflow-y-auto mt-6 pr-2"></div>
                 </div>
             </div>
-        </section>
 
-    </main>
+            <div id="hist-view" class="view-panel hidden space-y-3">
+                <label class="text-[10px] uppercase font-bold opacity-20 ml-1 tracking-widest">History</label>
+                <div id="history-list" class="space-y-2"></div>
+            </div>
+        </aside>
+
+        <!-- Workspace -->
+        <main class="flex-grow bg-[#050505] overflow-y-auto p-12 relative scroll-smooth">
+            <div id="workspace" class="pb-64 max-w-5xl mx-auto"></div>
+            
+            <!-- Global Controls -->
+            <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#111]/90 backdrop-blur-2xl p-4 rounded-[2rem] border border-white/10 no-print shadow-2xl z-[200]">
+                <div class="flex bg-white/5 rounded-xl p-1">
+                    <button onclick="Core.setShip(60, 'Dhaka')" class="px-6 py-2.5 text-[9px] font-bold uppercase rounded-lg hover:text-amber-500">Inside</button>
+                    <button onclick="Core.setShip(120, 'Outside')" class="px-6 py-2.5 text-[9px] font-bold uppercase rounded-lg hover:text-amber-500">Outside</button>
+                </div>
+                
+                <button onclick="Logistics.exportCSV()" class="px-6 py-2.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-black rounded-xl uppercase hover:bg-amber-500 hover:text-black transition-all">
+                    Export CSV
+                </button>
+
+                <button onclick="window.print()" class="px-8 py-2.5 bg-white text-black text-[9px] font-black rounded-xl uppercase tracking-widest hover:scale-105 transition-all">
+                    Print Order
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/95 hidden items-center justify-center z-[300] backdrop-blur-md">
+        <div class="bg-[#111] p-10 rounded-[2.5rem] w-[420px] border border-white/10">
+            <h2 id="m-title" class="text-2xl font-black uppercase text-amber-500 mb-6 italic tracking-tighter"></h2>
+            
+            <div class="space-y-6 mb-8">
+                <div>
+                    <label class="text-[9px] uppercase opacity-20 font-bold tracking-widest mb-2 block">Color Way</label>
+                    <div id="m-col-container" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div>
+                    <label class="text-[9px] uppercase opacity-20 font-bold tracking-widest mb-2 block">Size</label>
+                    <div id="m-sz-container" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div>
+                    <label class="text-[9px] uppercase opacity-20 font-bold tracking-widest mb-2 block">Quantity</label>
+                    <input id="m-qty" type="number" value="1" min="1" class="glass w-full p-4 text-[14px] font-bold">
+                </div>
+            </div>
+            
+            <button onclick="Core.confirmAdd()" class="w-full py-4 bg-amber-500 text-black font-black rounded-xl text-[11px] uppercase tracking-widest shadow-lg active:scale-95 transition-all">Add to Memo</button>
+            <button onclick="UI.modal(false)" class="w-full mt-4 text-[9px] opacity-20 font-bold uppercase tracking-widest hover:opacity-100 transition">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Memo Template -->
+    <template id="memo-tpl">
+        <div class="memo-card" onclick="Core.selectMemo(this)">
+            <div onclick="Core.deleteMemo(event, this)" class="dustbin no-print"><i class="fa-solid fa-trash-can"></i></div>
+            
+            <div class="flex justify-between border-b-[6px] border-black pb-4 mb-6">
+                <div>
+                    <h1 class="text-5xl font-black italic tracking-tighter leading-none">ONEN</h1>
+                    <p class="text-[8px] font-bold tracking-[0.4em] uppercase mt-1 opacity-40">Artifacts for the silent soul</p>
+                </div>
+                <div class="text-right flex flex-col items-end">
+                    <div class="flex gap-2 items-center mb-1 no-print">
+                        <button onclick="Core.toggleStatus(this)" class="m-status border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-pending">PENDING</button>
+                        <button onclick="Core.toggleParcelType(this)" class="m-parcel-type border-[2px] border-black px-3 py-1 text-[8px] font-black uppercase rounded-full bg-black text-white">REGULAR</button>
+                    </div>
+                    <div class="text-2xl font-black m-id tracking-tighter">#0000</div>
+                    <div class="text-[10px] font-bold m-date opacity-30 uppercase tracking-widest"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 mb-6">
+                <div class="space-y-0.5">
+                    <input class="m-name w-full border-none font-black text-xl p-0 focus:ring-0 uppercase placeholder:opacity-10" placeholder="CUSTOMER NAME" oninput="Core.cloudSync()">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0 placeholder:opacity-10" placeholder="PHONE NUMBER" oninput="Core.cloudSync()">
+                    <textarea class="m-addr w-full border-none text-[11px] h-12 p-0 resize-none focus:ring-0 leading-snug placeholder:opacity-10 font-medium" placeholder="SHIPPING ADDRESS" oninput="Core.cloudSync()"></textarea>
+                </div>
+                <div class="text-right">
+                    <span class="m-tag border-[2.5px] border-black px-4 py-1.5 text-[10px] font-black uppercase inline-block italic tracking-widest">DHAKA</span>
+                </div>
+            </div>
+
+            <div class="flex-grow">
+                <table class="w-full text-[12px]">
+                    <thead class="border-b-[1.5px] border-black font-black text-[9px] uppercase text-left">
+                        <tr>
+                            <th class="pb-2 w-8">#</th>
+                            <th class="pb-2">DESCRIPTION</th>
+                            <th class="pb-2 text-center w-24">VAR</th>
+                            <th class="pb-2 text-center w-10">QTY</th>
+                            <th class="pb-2 text-right w-24">PRICE</th>
+                            <th class="no-print w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="m-body font-bold"></tbody>
+                </table>
+            </div>
+
+            <div class="mt-6 border-t border-slate-50 pt-4 flex justify-between items-end">
+                <div class="text-[8px] font-bold text-slate-400 uppercase leading-relaxed">
+                    <p class="text-black font-black italic mb-1 tracking-widest">Logistics Policy:</p>
+                    <p>7-Day Exchange window • Original Tags Required</p>
+                    <p class="mt-1 opacity-30 lowercase">onen.studio • curated essentials</p>
+                </div>
+                <div class="text-right w-40">
+                    <div class="flex justify-between text-slate-400 font-bold text-[10px] mb-0.5"><span>DELIVERY</span><span class="m-s-val">0</span></div>
+                    <div class="flex justify-between border-t-[2px] border-black pt-1 font-black">
+                        <span class="text-[10px] mt-2">TOTAL</span>
+                        <span class="text-4xl m-total tracking-tighter leading-none">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
 
     <script>
-        const firebaseConfig = {
+        const STORE_NAME = "ONEN STUDIO";
+        const firebaseConfig = { 
             apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", 
-            authDomain: "onen-studio.firebaseapp.com",
-            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com",
-            projectId: "onen-studio"
+            authDomain: "onen-studio.firebaseapp.com", 
+            projectId: "onen-studio", 
+            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com" 
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const Logistics = {
+            exportCSV() {
+                const headers = ["ItemType","StoreName","MerchantOrderId","RecipientName(*)","RecipientPhone(*)","RecipientAddress(*)","RecipientCity(*)","RecipientZone(*)","RecipientArea","AmountToCollect(*)","ItemQuantity","ItemWeight","ItemDesc","SpecialInstruction"];
+                const cards = Array.from(document.querySelectorAll('.memo-card'));
+                const rows = cards.map(c => {
+                    const name = c.querySelector('.m-name').value;
+                    const phone = c.querySelector('.m-phone').value;
+                    const addr = c.querySelector('.m-addr').value.replace(/,/g, ' ');
+                    const total = c.querySelector('.m-total').innerText.replace(/,/g, '');
+                    const id = c.querySelector('.m-id').innerText;
+                    const type = c.querySelector('.m-parcel-type').innerText;
+                    const city = c.querySelector('.m-tag').innerText.includes('DHAKA') ? 'Dhaka' : 'Outside Dhaka';
+                    return ["parcel", STORE_NAME, id, name, phone, `"${addr}"`, city, "parcel", STORE_NAME, total, "1", "0.5", type, ""].join(",");
+                });
+                const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.join("\n");
+                const link = document.createElement("a");
+                link.setAttribute("href", encodeURI(csvContent));
+                link.setAttribute("download", `ONEN_ORDERS_${new Date().getTime()}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            }
         };
 
-        const app = firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-        const auth = firebase.auth();
-
-        function initSession() {
-            auth.signInAnonymously()
-                .then(() => {
-                    const statusEl = document.getElementById('connection-status');
-                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> System Live`;
-                    statusEl.classList.replace('text-white/40', 'text-green-500/80');
-                    startApp();
-                })
-                .catch(err => {
-                    console.error(err);
-                    document.getElementById('connection-status').innerHTML = `Offline`;
-                });
-        }
-
-        function startApp() {
-            const form = document.getElementById('shipment-form');
-            const list = document.getElementById('shipment-list');
-
-            form.addEventListener('submit', (e) => {
-                e.preventDefault();
-                const data = {
-                    origin: document.getElementById('origin').value.toUpperCase(),
-                    destination: document.getElementById('destination').value.toUpperCase(),
-                    weight: document.getElementById('weight').value,
-                    priority: document.getElementById('priority').value,
-                    status: 'In Transit',
-                    timestamp: firebase.database.ServerValue.TIMESTAMP
-                };
-                db.ref('shipments').push(data);
-                form.reset();
-            });
-
-            db.ref('shipments').on('value', (snap) => {
-                const data = snap.val();
-                list.innerHTML = '';
-                let t = 0, d = 0;
-
-                if (!data) {
-                    list.innerHTML = '<div class="h-64 flex items-center justify-center text-[10px] font-black uppercase opacity-10 tracking-[0.5em]">No Active Manifests</div>';
-                    return;
-                }
-
-                Object.entries(data).reverse().forEach(([id, item]) => {
-                    item.status === 'In Transit' ? t++ : d++;
-                    
-                    const card = document.createElement('div');
-                    card.className = 'glass p-6 rounded-3xl flex justify-between items-center group hover:bg-white/[0.06] transition-all cursor-default';
-                    card.innerHTML = `
-                        <div class="flex gap-6 items-center">
-                            <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
-                                <i class="fa-solid fa-box text-white/20 group-hover:text-amber-500 transition-colors"></i>
-                            </div>
+        const Inventory = {
+            data: [], selectedColor: null, selectedSize: null,
+            init() { db.ref('inventory').on('value', snap => { this.data = snap.val() ? Object.values(snap.val()) : []; this.render(); }); },
+            render() {
+                const s = document.getElementById('cat-search').value.toUpperCase();
+                const filtered = this.data.filter(p => p.sku.includes(s) || p.name.toUpperCase().includes(s));
+                document.getElementById('cat-list').innerHTML = filtered.map(p => `
+                    <div onclick="Core.prepItem('${p.sku}')" class="glass p-4 cursor-pointer hover:border-amber-500/30 transition-all group">
+                        <div class="flex justify-between items-center">
                             <div>
-                                <div class="flex items-center gap-3 mb-1">
-                                    <span class="text-[10px] font-black text-amber-500 italic">#${id.slice(-6).toUpperCase()}</span>
-                                    <span class="text-[8px] font-extrabold uppercase bg-white/10 px-2 py-0.5 rounded-full text-white/40">${item.priority}</span>
-                                </div>
-                                <div class="text-sm font-bold tracking-tight flex items-center gap-3">
-                                    ${item.origin} 
-                                    <i class="fa-solid fa-arrow-right text-[10px] opacity-20"></i>
-                                    ${item.destination}
-                                </div>
-                                <div class="text-[9px] font-medium opacity-30 mt-1 uppercase tracking-widest">${item.weight} KG • ${new Date(item.timestamp).toLocaleTimeString()}</div>
+                                <h3 class="text-[10px] font-black uppercase text-white/70 group-hover:text-amber-500">${p.name}</h3>
+                                <p class="text-[8px] font-bold opacity-30 mt-0.5">${p.sku}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-[10px] font-black">${p.price}৳</p>
                             </div>
                         </div>
-                        <div class="text-right flex flex-col items-end gap-3">
-                            <span class="text-[10px] font-black uppercase tracking-tighter ${item.status === 'Delivered' ? 'text-green-500' : 'text-amber-500'}">
-                                ${item.status}
-                            </span>
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
-                                ${item.status === 'In Transit' ? 
-                                    `<button onclick="updateStatus('${id}', 'Delivered')" class="text-[9px] font-black uppercase bg-white text-black px-4 py-2 rounded-xl hover:bg-amber-500 transition-colors">Deliver</button>` : 
-                                    `<button onclick="deleteShipment('${id}')" class="text-[9px] font-black uppercase bg-red-500/10 text-red-500 px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-colors">Archive</button>`
-                                }
-                            </div>
-                        </div>
-                    `;
-                    list.appendChild(card);
+                    </div>`).join('');
+            }
+        };
+
+        const Core = {
+            activeIdx: 0, pending: null,
+            init() { 
+                Inventory.init(); 
+                db.ref('session_memos').once('value', snap => {
+                    const saved = snap.val();
+                    if(saved && saved.length > 0) saved.forEach(m => this.injectMemo(m));
+                    else this.createNewMemo();
                 });
+            },
+            createNewMemo() {
+                this.injectMemo({ id: '#'+Math.floor(1000 + Math.random() * 9000), name: '', phone: '', addr: '', ship: 0, tag: 'DHAKA', status: 'PENDING', type: 'REGULAR', date: new Date().toLocaleDateString('en-GB') });
+            },
+            injectMemo(data) {
+                const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
+                const card = tpl.querySelector('.memo-card');
+                card.querySelector('.m-id').innerText = data.id;
+                card.querySelector('.m-date').innerText = data.date;
+                card.querySelector('.m-name').value = data.name || '';
+                card.querySelector('.m-phone').value = data.phone || '';
+                card.querySelector('.m-addr').value = data.addr || '';
+                card.querySelector('.m-s-val').innerText = data.ship || 0;
+                card.querySelector('.m-tag').innerText = data.tag || 'DHAKA';
+                
+                const st = card.querySelector('.m-status');
+                st.innerText = data.status || 'PENDING';
+                st.className = `m-status border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-${(data.status || 'PENDING').toLowerCase()}`;
+                
+                const pt = card.querySelector('.m-parcel-type');
+                pt.innerText = data.type || 'REGULAR';
+                pt.className = `m-parcel-type border-[2px] border-black px-3 py-1 text-[8px] font-black uppercase rounded-full ${data.type === 'EXCHANGE' ? 'type-exchange' : 'type-regular'}`;
 
-                document.getElementById('stat-transit').innerText = t;
-                document.getElementById('stat-delivered').innerText = d;
-            });
-        }
+                document.getElementById('workspace').prepend(card);
+                setTimeout(() => { card.classList.add('active'); this.selectMemo(card); }, 50);
+            },
+            selectMemo(el) {
+                document.querySelectorAll('.memo-card').forEach(c => c.classList.remove('active'));
+                el.classList.add('active');
+                this.activeIdx = Array.from(document.querySelectorAll('.memo-card')).indexOf(el);
+                this.updateHistory();
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            },
+            getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
+            processMagic() {
+                const v = document.getElementById('magic-box').value;
+                const phone = (v.match(/01[3-9]\d{8}/) || [""])[0];
+                const active = this.getActive();
+                if(!active) return;
+                const lines = v.split('\n').map(l => l.trim()).filter(l => l);
+                active.querySelector('.m-name').value = (lines[0] || "").toUpperCase();
+                active.querySelector('.m-phone').value = phone;
+                active.querySelector('.m-addr').value = v.replace(phone,'').replace(lines[0],'').trim();
+                this.cloudSync();
+            },
+            prepItem(sku) {
+                this.pending = Inventory.data.find(i => i.sku === sku);
+                Inventory.selectedColor = this.pending.cols[0];
+                Inventory.selectedSize = this.pending.sizes[0];
+                document.getElementById('m-title').innerText = this.pending.name;
+                
+                const colContainer = document.getElementById('m-col-container');
+                colContainer.innerHTML = this.pending.cols.map(c => `
+                    <button onclick="Core.setVar('color', '${c}', this)" class="px-3 py-1.5 border border-white/10 rounded-lg text-[9px] font-bold uppercase hover:bg-white/5 ${c===Inventory.selectedColor?'bg-amber-500 text-black':''}">${c}</button>
+                `).join('');
 
-        window.updateStatus = (id, s) => db.ref(`shipments/${id}`).update({ status: s });
-        window.deleteShipment = (id) => db.ref(`shipments/${id}`).remove();
+                const szContainer = document.getElementById('m-sz-container');
+                szContainer.innerHTML = this.pending.sizes.map(s => `
+                    <button onclick="Core.setVar('size', '${s}', this)" class="px-3 py-1.5 border border-white/10 rounded-lg text-[9px] font-bold uppercase hover:bg-white/5 ${s===Inventory.selectedSize?'bg-amber-500 text-black':''}">${s}</button>
+                `).join('');
+                UI.modal(true);
+            },
+            setVar(type, val, btn) {
+                btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('bg-amber-500', 'text-black'));
+                btn.classList.add('bg-amber-500', 'text-black');
+                if(type === 'color') Inventory.selectedColor = val;
+                else Inventory.selectedSize = val;
+            },
+            confirmAdd() {
+                const qty = parseInt(document.getElementById('m-qty').value) || 1;
+                const row = `<tr class="border-b border-slate-50 group">
+                    <td class="py-3 opacity-20"></td>
+                    <td class="py-3 uppercase"><div class="font-black">${this.pending.name}</div><div class="text-[7px] opacity-20">${this.pending.sku}</div></td>
+                    <td class="text-center uppercase text-[9px] font-black">${Inventory.selectedColor}-${Inventory.selectedSize}</td>
+                    <td class="text-center">${qty}</td>
+                    <td class="text-right font-black r-price">${(this.pending.price * qty).toLocaleString()}</td>
+                    <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition">×</button></td>
+                </tr>`;
+                this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
+                this.recalc(); UI.modal(false);
+            },
+            toggleStatus(btn) {
+                const cycle = { 'PENDING': 'UNPAID', 'UNPAID': 'PAID', 'PAID': 'RETURNED', 'RETURNED': 'PENDING' };
+                const next = cycle[btn.innerText];
+                btn.innerText = next;
+                btn.className = `m-status border-[2px] px-3 py-1 text-[8px] font-black uppercase rounded-full st-${next.toLowerCase()}`;
+                this.cloudSync(); this.updateHistory();
+            },
+            toggleParcelType(btn) {
+                const isReg = btn.innerText === 'REGULAR';
+                btn.innerText = isReg ? 'EXCHANGE' : 'REGULAR';
+                btn.className = `m-parcel-type border-[2px] border-black px-3 py-1 text-[8px] font-black uppercase rounded-full ${!isReg ? 'type-regular' : 'type-exchange'}`;
+                this.cloudSync();
+            },
+            setShip(v, l) {
+                const a = this.getActive(); if(!a) return;
+                a.querySelector('.m-s-val').innerText = v;
+                a.querySelector('.m-tag').innerText = l.toUpperCase();
+                this.recalc();
+            },
+            recalc() {
+                const a = this.getActive(); if(!a) return;
+                let total = 0; 
+                a.querySelectorAll('.r-price').forEach(p => total += parseFloat(p.innerText.replace(/,/g,'')));
+                const ship = parseFloat(a.querySelector('.m-s-val').innerText);
+                a.querySelector('.m-total').innerText = (total + ship).toLocaleString();
+                a.querySelectorAll('.m-body tr').forEach((tr, i) => tr.cells[0].innerText = i + 1);
+                this.cloudSync();
+            },
+            deleteMemo(e, b) { 
+                e.stopPropagation(); 
+                const card = b.closest('.memo-card');
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(20px)';
+                setTimeout(() => { card.remove(); this.cloudSync(); this.updateHistory(); }, 300);
+            },
+            cloudSync() {
+                const dot = document.getElementById('sync-dot');
+                dot.style.opacity = 1;
+                const memos = Array.from(document.querySelectorAll('.memo-card')).map(m => ({
+                    id: m.querySelector('.m-id').innerText, 
+                    name: m.querySelector('.m-name').value, 
+                    phone: m.querySelector('.m-phone').value,
+                    addr: m.querySelector('.m-addr').value, 
+                    ship: m.querySelector('.m-s-val').innerText, 
+                    tag: m.querySelector('.m-tag').innerText, 
+                    status: m.querySelector('.m-status').innerText, 
+                    type: m.querySelector('.m-parcel-type').innerText,
+                    date: m.querySelector('.m-date').innerText
+                }));
+                db.ref('session_memos').set(memos).then(() => setTimeout(() => dot.style.opacity = 0, 500));
+            },
+            updateHistory() {
+                const list = document.getElementById('history-list');
+                const cards = Array.from(document.querySelectorAll('.memo-card'));
+                list.innerHTML = cards.map((c, i) => {
+                    const status = c.querySelector('.m-status').innerText.toLowerCase();
+                    const name = c.querySelector('.m-name').value || 'New Order';
+                    return `
+                    <div class="sidebar-item flex justify-between items-center glass p-4 cursor-pointer transition-all ${i===this.activeIdx?'active':''}" onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])">
+                        <div class="truncate">
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 rounded-full st-${status} bg-current"></span>
+                                <span class="text-[9px] font-black text-white/50">${c.querySelector('.m-id').innerText}</span>
+                            </div>
+                            <div class="text-[10px] font-bold uppercase truncate mt-1">${name}</div>
+                        </div>
+                        <button onclick="Core.deleteMemo(event, this)" class="opacity-0 group-hover:opacity-100 p-2 text-white/20 hover:text-red-500 transition-all">
+                            <i class="fa-solid fa-trash-can text-[10px]"></i>
+                        </button>
+                    </div>`;
+                }).join('');
+            }
+        };
 
-        window.onload = initSession;
+        const UI = {
+            show(v) { 
+                document.querySelectorAll('.view-panel').forEach(p => p.classList.add('hidden')); 
+                document.getElementById(v + '-view').classList.remove('hidden'); 
+            },
+            modal(s) { 
+                const m = document.getElementById('modal');
+                m.classList.toggle('hidden', !s);
+                m.classList.toggle('flex', s);
+            }
+        };
+
+        window.onload = () => Core.init();
     </script>
 </body>
 </html>
