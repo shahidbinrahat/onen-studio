@@ -61,6 +61,7 @@
         }
         .pill-btn.active-state { background: white; color: black; border-color: white; }
         
+        /* Status Colors */
         .st-pending { color: #64748b; border-color: #cbd5e1; }
         .st-unpaid { color: #d97706; border-color: #fcd34d; }
         .st-paid { color: #059669; border-color: #6ee7b7; }
@@ -266,10 +267,11 @@
             { id: 1, name: "Onyx Basic Tee", price: 1250, variants: ["Black/M", "Black/L", "Black/XL"] },
             { id: 2, name: "Ghost Cargo Pants", price: 2850, variants: ["Grey/30", "Grey/32", "Grey/34"] },
             { id: 3, name: "Neon Studio Hoodie", price: 3400, variants: ["Purple/L", "Purple/XL"] },
-            { id: 4, name: "Gravity Oversized", price: 1650, variants: ["Cream/M", "Cream/L"] }
+            { id: 4, name: "Gravity Oversized", price: 1650, variants: ["Cream/M", "Cream/L"] },
+            { id: 5, name: "Studio Tote Bag", price: 650, variants: ["Black/OneSize"] },
+            { id: 6, name: "Cyber Socks", price: 350, variants: ["White", "Black"] }
         ];
 
-        // --- CORE LOGIC ---
         const Core = {
             async init() {
                 await signInAnonymously(auth);
@@ -277,7 +279,6 @@
                     user = u;
                     if (user) this.setupListener();
                 });
-
                 this.bindEvents();
             },
 
@@ -288,7 +289,9 @@
                     snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
                     memos = data.sort((a, b) => b.createdAt - a.createdAt);
                     this.renderWorkspace();
-                }, (err) => console.error("Firestore error:", err));
+                }, (err) => {
+                    console.error("Firestore error:", err);
+                });
             },
 
             bindEvents() {
@@ -327,6 +330,7 @@
                     createdAt: Date.now()
                 };
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
+                activeIdx = 0; 
             },
 
             renderWorkspace() {
@@ -336,6 +340,7 @@
                 historyList.innerHTML = '';
 
                 if (memos.length === 0) {
+                    workspace.innerHTML = `<div class="text-center py-20 opacity-20 font-black uppercase tracking-widest">No Memos. Creating New...</div>`;
                     this.createNewMemo();
                     return;
                 }
@@ -349,21 +354,17 @@
                     card.querySelector('.m-id').innerText = m.id;
                     card.querySelector('.m-date').innerText = m.date;
                     
-                    const nameInput = card.querySelector('.m-name');
-                    nameInput.value = m.name;
-                    nameInput.onchange = (e) => this.updateMemo({ name: e.target.value }, m.docId);
+                    // Controlled Inputs with debounced update (handled by onchange)
+                    const bindInput = (selector, key) => {
+                        const el = card.querySelector(selector);
+                        el.value = m[key] || '';
+                        el.onchange = (e) => this.updateMemo({ [key]: e.target.value }, m.docId);
+                    };
 
-                    const phoneInput = card.querySelector('.m-phone');
-                    phoneInput.value = m.phone;
-                    phoneInput.onchange = (e) => this.updateMemo({ phone: e.target.value }, m.docId);
-
-                    const addrInput = card.querySelector('.m-addr');
-                    addrInput.value = m.addr;
-                    addrInput.onchange = (e) => this.updateMemo({ addr: e.target.value }, m.docId);
-
-                    const instrInput = card.querySelector('.m-instructions');
-                    instrInput.value = m.instructions;
-                    instrInput.onchange = (e) => this.updateMemo({ instructions: e.target.value }, m.docId);
+                    bindInput('.m-name', 'name');
+                    bindInput('.m-phone', 'phone');
+                    bindInput('.m-addr', 'addr');
+                    bindInput('.m-instructions', 'instructions');
 
                     card.querySelector('.m-tag').innerText = m.tag;
                     card.querySelector('.m-ship-val').innerText = m.ship;
@@ -378,20 +379,42 @@
 
                     const rows = card.querySelector('.m-rows');
                     let subtotal = 0;
+                    
                     m.items.forEach((item, idx) => {
-                        subtotal += (item.price * item.qty);
+                        const itemTotal = (item.price * item.qty);
+                        subtotal += itemTotal;
                         const tr = document.createElement('tr');
                         tr.className = "border-b border-black/5 group";
                         tr.innerHTML = `
                             <td class="py-3 opacity-20">${idx + 1}</td>
                             <td class="py-3 uppercase">${item.name}</td>
                             <td class="text-center">${item.variant}</td>
-                            <td class="text-center">${item.qty}</td>
-                            <td class="text-right">${(item.price * item.qty).toLocaleString()}</td>
+                            <td class="text-center font-black">
+                                <div class="flex items-center justify-center gap-2 no-print">
+                                    <button class="qty-sub opacity-30 hover:opacity-100 px-1 text-lg">×</button>
+                                    <span>${item.qty}</span>
+                                    <button class="qty-add opacity-30 hover:opacity-100 px-1 text-lg">+</button>
+                                </div>
+                                <span class="hidden print:inline">${item.qty}</span>
+                            </td>
+                            <td class="text-right">${itemTotal.toLocaleString()}</td>
                             <td class="no-print text-right pl-2">
                                 <span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span>
                             </td>
                         `;
+                        
+                        tr.querySelector('.qty-add').onclick = () => {
+                            const newItems = [...m.items];
+                            newItems[idx].qty++;
+                            this.updateMemo({ items: newItems }, m.docId);
+                        };
+                        tr.querySelector('.qty-sub').onclick = () => {
+                            const newItems = [...m.items];
+                            if (newItems[idx].qty > 1) {
+                                newItems[idx].qty--;
+                                this.updateMemo({ items: newItems }, m.docId);
+                            }
+                        };
                         tr.querySelector('.row-remove-btn').onclick = () => {
                             const newItems = [...m.items];
                             newItems.splice(idx, 1);
@@ -403,8 +426,10 @@
                     card.querySelector('.m-total').innerText = (subtotal + m.ship).toLocaleString();
 
                     card.onclick = () => {
-                        activeIdx = i;
-                        this.renderWorkspace();
+                        if (activeIdx !== i) {
+                            activeIdx = i;
+                            this.renderWorkspace();
+                        }
                     };
 
                     card.querySelector('.m-delete-btn').onclick = (e) => {
@@ -414,12 +439,12 @@
 
                     workspace.appendChild(card);
 
-                    // History Item
+                    // History Item Sidebar
                     const hist = document.createElement('div');
-                    hist.className = `p-4 glass cursor-pointer ${i === activeIdx ? 'border-amber-500 bg-white/5' : ''}`;
+                    hist.className = `p-4 glass cursor-pointer transition-all ${i === activeIdx ? 'border-amber-500 bg-white/5 opacity-100' : 'opacity-40 hover:opacity-100'}`;
                     hist.innerHTML = `
-                        <div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'Untitled Order'}</div>
-                        <div class="flex justify-between mt-1 opacity-40 text-[8px] font-black">
+                        <div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'UNNAMED ORDER'}</div>
+                        <div class="flex justify-between mt-1 opacity-60 text-[8px] font-black">
                             <span>${m.id}</span>
                             <span>${(subtotal + m.ship).toLocaleString()}৳</span>
                         </div>
@@ -444,6 +469,9 @@
                 document.querySelectorAll('[data-type]').forEach(btn => {
                     btn.classList.toggle('active-state', btn.dataset.type === m.type);
                 });
+                document.querySelectorAll('[data-val]').forEach(btn => {
+                    btn.classList.toggle('active-state', parseInt(btn.dataset.val) === m.ship);
+                });
             },
 
             async updateMemo(data, specificId = null) {
@@ -454,7 +482,8 @@
             },
 
             async deleteMemo(id) {
-                if (!user || !confirm("Delete this memo?")) return;
+                if (!user) return;
+                if (!confirm("Permanently delete this memo?")) return;
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
                 if (activeIdx >= memos.length - 1) activeIdx = Math.max(0, memos.length - 2);
             },
@@ -465,14 +494,16 @@
                 modal.classList.replace('hidden', 'flex');
                 
                 grid.innerHTML = Inventory.map(item => `
-                    <div class="glass p-8 flex flex-col gap-4">
-                        <div class="flex justify-between">
-                            <h4 class="font-black uppercase text-xl text-white">${item.name}</h4>
-                            <span class="text-amber-500 font-black">${item.price}৳</span>
+                    <div class="glass p-8 flex flex-col gap-4 border-white/5 hover:border-amber-500/30">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4>
+                                <span class="text-amber-500 font-bold text-xs">৳${item.price.toLocaleString()}</span>
+                            </div>
                         </div>
                         <div class="flex flex-wrap gap-2">
                             ${item.variants.map(v => `
-                                <button class="pill-btn hover:bg-white/10 text-white add-item-trigger" 
+                                <button class="pill-btn hover:bg-white hover:text-black text-white border-white/10 add-item-trigger" 
                                     data-name="${item.name}" data-var="${v}" data-price="${item.price}">
                                     ${v}
                                 </button>
@@ -502,15 +533,30 @@
 
             parse(val) {
                 if (!val) return;
-                const phone = (val.match(/01[3-9]\d{8}/) || [""])[0];
-                const lines = val.split('\n').filter(l => l.trim());
-                const name = lines[0]?.toUpperCase() || '';
-                const addr = val.replace(lines[0], '').replace(phone, '').trim();
+                
+                const phoneMatch = val.match(/01[3-9]\d{8}/);
+                const phone = phoneMatch ? phoneMatch[0] : "";
+                
+                const lines = val.split('\n').map(l => l.trim()).filter(l => l);
+                if (lines.length < 1) return;
+
+                const name = lines[0].toUpperCase();
+                // Filter out the phone and name to get remaining text as address
+                const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
                 
                 this.updateMemo({ name, phone, addr });
+                
+                // UX: Clear after success feedback
+                setTimeout(() => {
+                    if (document.getElementById('quick-parse').value === val) {
+                        document.getElementById('quick-parse').value = '';
+                    }
+                }, 1500);
             },
 
             exportData(provider) {
+                if (memos.length === 0) return;
+                
                 const headers = provider === 'steadfast' 
                     ? ["Invoice","Name","Contact","Address","Amount","Note"]
                     : ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"];
@@ -518,20 +564,25 @@
                 const rows = memos.map(m => {
                     const subtotal = m.items.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
                     const total = subtotal + m.ship;
+                    const cleanAddr = (m.addr || '').replace(/,/g, ' ').replace(/"/g, "'");
+                    const cleanNote = `${m.type} | ${m.instructions || ''}`.replace(/,/g, ' ').replace(/"/g, "'");
+
                     if (provider === 'steadfast') {
-                        return [m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), total, `${m.type} | ${m.instructions}`];
+                        return [m.id, m.name, m.phone, cleanAddr, total, cleanNote];
                     } else {
-                        return ["ONEN STUDIO", m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), m.tag, total, m.instructions];
+                        return ["ONEN STUDIO", m.id, m.name, m.phone, cleanAddr, m.tag, total, m.instructions];
                     }
                 });
 
                 const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-                const blob = new Blob([csv], { type: 'text/csv' });
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `ONEN_${provider.toUpperCase()}_${Date.now()}.csv`;
+                a.download = `ONEN_STUDIO_${provider.toUpperCase()}_${new Date().toLocaleDateString().replace(/\//g,'-')}.csv`;
+                document.body.appendChild(a);
                 a.click();
+                document.body.removeChild(a);
             }
         };
 
