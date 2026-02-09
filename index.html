@@ -3,225 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | v90</title>
+    <title>ONEN STUDIO | Ultimate Master v96</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;800&display=swap');
         
-        :root { --smooth: cubic-bezier(0.4, 0, 0.2, 1); --accent: #F59E0B; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #050505; color: white; overflow: hidden; }
+        :root { --accent: #F59E0B; --bg: #020202; --card: #080808; --smooth: cubic-bezier(0.16, 1, 0.3, 1); }
         
-        /* Dashboard Views */
-        .sidebar-view { transition: all 0.4s var(--smooth); }
-        .hidden-view { opacity: 0; transform: translateY(10px); pointer-events: none; display: none; }
-        
-        /* Input Styling */
-        .glass-input { background: #000; border: 1px solid #1a1a1a; color: white; border-radius: 12px; padding: 10px; font-size: 11px; width: 100%; outline: none; transition: 0.3s var(--smooth); }
-        .glass-input:focus { border-color: var(--accent); box-shadow: 0 0 20px rgba(245, 158, 11, 0.1); }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: white; overflow: hidden; margin: 0; }
 
-        /* MEMO CARD - FIXED DIMENSIONS */
+        /* Scannable Hierarchy */
+        .sidebar-view { transition: opacity 0.4s var(--smooth), transform 0.4s var(--smooth); height: 100%; }
+        .hidden-view { opacity: 0; transform: translateY(20px); pointer-events: none; display: none; }
+        
+        /* Glass Components */
+        .glass-input { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); color: white; border-radius: 12px; padding: 12px; font-size: 11px; width: 100%; outline: none; transition: 0.2s; }
+        .glass-input:focus { border-color: var(--accent); background: #000; box-shadow: 0 0 20px rgba(245, 158, 11, 0.1); }
+        
+        /* Memo Presentation */
         .memo-card { 
             width: 210mm; height: 148.5mm; background: white; color: black; 
             margin: 0 auto; overflow: hidden; display: flex; flex-direction: column;
-            transition: all 0.5s var(--smooth); transform: scale(0.95); opacity: 0.2; filter: grayscale(1);
+            transition: all 0.5s var(--smooth); transform: scale(0.97); opacity: 0.1;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.5); position: relative;
         }
-        .memo-card.active { transform: scale(1); opacity: 1; filter: grayscale(0); border: 4px solid var(--accent); box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
+        .memo-card.active { transform: scale(1); opacity: 1; border: 4px solid var(--accent); box-shadow: 0 40px 100px rgba(0,0,0,0.8); }
 
-        /* Layout Elements */
-        .pivot-btn { transition: transform 0.6s var(--smooth); }
-        .pivot-active .pivot-btn { transform: rotate(90deg); color: var(--accent); }
+        /* Interaction States */
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; position: relative; }
+        .status-dot.online { background: #10B981; box-shadow: 0 0 15px #10B981; }
         
-        .label { font-size: 8px; font-weight: 800; color: #444; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 6px; }
-        .custom-scroll::-webkit-scrollbar { width: 3px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: #222; border-radius: 10px; }
-        
-        @media print { 
-            body { background: white; }
-            .no-print { display: none !important; } 
-            .memo-card { transform: scale(1)!important; opacity: 1!important; border: none!important; margin: 0!important; box-shadow: none!important; } 
-        }
+        .custom-scroll::-webkit-scrollbar { width: 4px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+
+        @media print { .no-print { display: none !important; } .memo-card { transform: scale(1)!important; opacity: 1!important; border: none!important; margin: 0!important; } }
     </style>
 </head>
 <body>
+
     <div class="flex h-screen overflow-hidden">
         
         <aside id="main-sidebar" class="w-80 bg-[#080808] border-r border-white/5 flex flex-col relative z-50">
-            <button onclick="UI.togglePivot()" class="pivot-btn absolute top-6 right-6 z-[60] text-white/20 hover:text-amber-500">
-                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+            <button onclick="UI.togglePivot()" class="absolute top-8 right-6 z-[60] text-white/20 hover:text-amber-500 transition-all">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
             </button>
 
-            <div class="p-6 flex-grow flex flex-col overflow-hidden">
-                <h1 class="text-xl font-black italic tracking-tighter mb-8 uppercase">Onen Studio<span class="text-amber-500">.</span></h1>
-
-                <div id="control-view" class="sidebar-view space-y-6 flex flex-col flex-grow">
-                    <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-amber-500 transition-all">+ New Order</button>
-                    
-                    <div>
-                        <label class="label">Magic Box (Auto)</label>
-                        <textarea id="magic-box" oninput="Core.processLocal()" class="glass-input h-24 resize-none" placeholder="Paste data..."></textarea>
-                    </div>
-
-                    <div class="flex-grow flex flex-col bg-white/5 rounded-2xl border border-white/5 p-4 overflow-hidden">
-                        <label class="label text-amber-500 underline">Catalog</label>
-                        <input id="prod-search" oninput="Inventory.render()" class="glass-input mb-4 !py-2 text-[10px]" placeholder="Search SKU...">
-                        <div id="catalog-list" class="flex-grow overflow-y-auto custom-scroll space-y-2"></div>
-                    </div>
-
-                    <div id="batch-list" class="h-20 overflow-y-auto custom-scroll space-y-1"></div>
-                    <button onclick="Core.exportPDF()" class="w-full py-4 border border-white/10 text-white/40 font-black text-[9px] rounded-xl hover:bg-white hover:text-black">BATCH EXPORT</button>
+            <div class="p-8 flex-grow flex flex-col overflow-hidden">
+                <div class="flex items-center gap-3 mb-10">
+                    <h1 class="text-2xl font-black italic tracking-tighter uppercase leading-none">Onen<br><span class="text-xs tracking-[0.3em] font-normal not-italic opacity-50">Studio</span></h1>
+                    <div id="cloud-status" class="status-dot"></div>
                 </div>
 
-                <div id="inventory-view" class="sidebar-view hidden-view space-y-6 flex flex-col flex-grow overflow-hidden">
-                    <div class="bg-amber-500/5 p-5 rounded-2xl border border-amber-500/10">
-                        <label class="label text-amber-500">Stock Slab</label>
-                        <input id="in-sku" class="glass-input mb-2" placeholder="SKU">
-                        <input id="in-name" class="glass-input mb-2" placeholder="Name">
-                        <input id="in-price" type="number" class="glass-input mb-2" placeholder="Price">
-                        <div class="grid grid-cols-2 gap-2 mb-4">
-                            <input id="in-cols" class="glass-input" placeholder="Colors">
-                            <input id="in-sizes" class="glass-input" placeholder="Sizes">
+                <div id="control-view" class="sidebar-view space-y-6 flex flex-col">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[8px] font-black uppercase opacity-40 block mb-1">Total Revenue</span>
+                            <div class="text-lg font-black text-amber-500">৳<span id="rev-total">0</span></div>
                         </div>
-                        <button id="save-btn" onclick="Inventory.save()" class="w-full py-3 bg-white text-black font-black text-[10px] rounded-lg">SAVE PRODUCT</button>
+                        <div class="bg-white/5 p-4 rounded-2xl border border-white/5">
+                            <span class="text-[8px] font-black uppercase opacity-40 block mb-1">Memos</span>
+                            <div class="text-lg font-black" id="order-count">0</div>
+                        </div>
                     </div>
-                    <div id="inventory-list" class="flex-grow overflow-y-auto custom-scroll pr-1 space-y-2"></div>
+
+                    <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-all">+ New Entry</button>
+                    
+                    <div>
+                        <label class="text-[9px] font-bold opacity-30 uppercase mb-2 block">Address Magic Box</label>
+                        <textarea id="magic-box" oninput="Core.processLocal()" class="glass-input h-24 resize-none" placeholder="Paste customer details here..."></textarea>
+                    </div>
+
+                    <div class="flex-grow flex flex-col bg-white/5 rounded-2xl border border-white/10 p-4 overflow-hidden">
+                        <label class="text-[10px] font-black text-amber-500 uppercase mb-3 block">Product Catalog</label>
+                        <input id="prod-search" oninput="Inventory.render()" class="glass-input mb-3 !py-2 text-[10px]" placeholder="Search SKU or Name...">
+                        <div id="catalog-list" class="flex-grow overflow-y-auto custom-scroll space-y-2 pr-1"></div>
+                    </div>
+
+                    <div class="pt-4 border-t border-white/5">
+                        <input id="batch-search" oninput="Core.updateBatchList()" class="glass-input !py-2 mb-2 text-[9px]" placeholder="Filter History...">
+                        <div id="batch-list" class="h-24 overflow-y-auto custom-scroll space-y-1"></div>
+                    </div>
+                </div>
+
+                <div id="inventory-view" class="sidebar-view hidden-view space-y-6 flex flex-col overflow-hidden">
+                    <div class="bg-amber-500/5 p-6 rounded-3xl border border-amber-500/10">
+                        <label class="text-[10px] font-black text-amber-500 uppercase mb-4 block">Stock Sync</label>
+                        <div class="space-y-2">
+                            <input id="in-sku" class="glass-input" placeholder="SKU (e.g. TS-01)">
+                            <input id="in-name" class="glass-input" placeholder="Product Title">
+                            <input id="in-price" type="number" class="glass-input" placeholder="Price (৳)">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input id="in-cols" class="glass-input" placeholder="Colors (Red, Blue)">
+                                <input id="in-sizes" class="glass-input" placeholder="Sizes (M, L, XL)">
+                            </div>
+                            <button id="save-btn" onclick="Inventory.save()" class="w-full py-4 bg-white text-black font-black text-[10px] rounded-xl mt-2">SYNC TO CLOUD</button>
+                        </div>
+                    </div>
+                    <div id="inventory-list" class="flex-grow overflow-y-auto custom-scroll space-y-2"></div>
                 </div>
             </div>
         </aside>
 
-        <main class="flex-grow bg-[#020202] p-12 overflow-y-auto custom-scroll flex flex-col items-center">
-            <div id="pdf-container" class="space-y-16 pb-40"></div>
+        <main class="flex-grow bg-[#050505] p-12 overflow-y-auto custom-scroll flex flex-col items-center">
+            <div id="pdf-container" class="space-y-16 pb-48"></div>
             
-            <div class="no-print fixed bottom-10 flex gap-2 bg-white/5 p-2 rounded-2xl border border-white/5 backdrop-blur-xl shadow-2xl">
-                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="px-5 py-2.5 text-[9px] font-black uppercase hover:text-amber-500 transition">Dhaka 60</button>
-                <button onclick="Core.setShipping(70, 'Suburban')" class="px-5 py-2.5 text-[9px] font-black uppercase border-x border-white/5 hover:text-amber-500 transition">Sub 70</button>
-                <button onclick="Core.setShipping(120, 'Outside')" class="px-5 py-2.5 text-[9px] font-black uppercase hover:text-amber-500 transition">Outside 120</button>
+            <div class="no-print fixed bottom-10 flex gap-2 bg-black/60 p-3 rounded-3xl border border-white/10 backdrop-blur-3xl shadow-2xl">
+                <button onclick="Core.setShipping(60, 'Inside Dhaka')" class="px-6 py-3 text-[10px] font-black uppercase hover:text-amber-500 transition">Dhaka ৳60</button>
+                <button onclick="Core.setShipping(120, 'Outside')" class="px-6 py-3 text-[10px] font-black uppercase hover:text-amber-500 transition">Outside ৳120</button>
+                <div class="w-[1px] bg-white/10 mx-2"></div>
+                <button onclick="Core.exportExcel()" class="px-7 py-3 bg-green-500/10 text-green-400 text-[10px] font-black rounded-2xl hover:bg-green-500 hover:text-white transition">EXPORT EXCEL</button>
+                <button onclick="Core.exportPDF()" class="px-7 py-3 bg-white text-black text-[10px] font-black rounded-2xl hover:bg-amber-500 transition">PRINT BATCH</button>
             </div>
         </main>
     </div>
 
-    <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100]">
-        <div class="bg-[#0c0c0c] border border-white/10 p-10 rounded-[40px] w-80 text-center scale-90 transition-transform duration-300">
-            <h2 id="m-title" class="text-xl font-black text-white mb-6 uppercase"></h2>
-            <div class="space-y-5 text-left">
-                <select id="m-col" multiple class="glass-input custom-scroll h-24"></select>
-                <select id="m-sz" class="glass-input"></select>
-                <div class="bg-white/5 p-4 rounded-xl border border-white/10">
-                    <label class="label text-center">Qty Per Color</label>
-                    <input id="m-qty" type="number" value="1" min="1" class="bg-transparent text-center text-3xl font-black w-full outline-none">
+    <div id="modal-overlay" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100] opacity-0 transition-all duration-300">
+        <div class="bg-[#0c0c0c] border border-white/10 p-10 rounded-[40px] w-[340px] text-center scale-90 transition-all">
+            <h2 id="m-title" class="text-xl font-black text-white mb-2 uppercase italic"></h2>
+            <p class="text-[10px] text-white/30 mb-8 uppercase tracking-widest">Select Attributes</p>
+            <div class="space-y-6 text-left">
+                <div>
+                    <label class="text-[9px] font-black text-amber-500 uppercase mb-2 block">Color(s)</label>
+                    <select id="m-col" multiple class="glass-input h-28 custom-scroll"></select>
                 </div>
-                <button onclick="Core.confirmInject()" class="w-full py-4 bg-amber-500 text-black font-black rounded-2xl uppercase">Inject Item</button>
-                <button onclick="UI.toggleModal(false)" class="w-full text-[9px] text-white/20 uppercase">Cancel</button>
+                <div>
+                    <label class="text-[9px] font-black text-amber-500 uppercase mb-2 block">Size</label>
+                    <select id="m-sz" class="glass-input"></select>
+                </div>
+                <div class="bg-white/5 p-5 rounded-2xl border border-white/10 text-center">
+                    <label class="text-[9px] font-black opacity-30 uppercase block mb-2">Quantity Per Color</label>
+                    <input id="m-qty" type="number" value="1" min="1" class="bg-transparent text-4xl font-black w-full text-center outline-none">
+                </div>
+                <button onclick="Core.confirmInject()" class="w-full py-5 bg-amber-500 text-black font-black rounded-2xl uppercase shadow-xl active:scale-95 transition">Add to Memo</button>
             </div>
         </div>
     </div>
 
     <template id="memo-tpl">
         <div class="memo-card p-[15mm]" onclick="Core.selectMemo(this)">
-            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-6 right-6 text-red-500 font-bold text-[9px]">DELETE</button>
+            <button onclick="Core.deleteMemo(event, this)" class="no-print absolute top-8 right-8 text-red-500 font-bold text-[9px] opacity-10 hover:opacity-100 transition">DELETE MEMO</button>
             
-            <div class="flex justify-between items-start border-b-8 border-black pb-4 mb-6">
+            <div class="flex justify-between items-start border-b-[6px] border-black pb-4 mb-6 text-left">
                 <div>
                     <h2 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h2>
-                    <p class="text-[9px] font-bold tracking-[0.3em] uppercase mt-1">Clothing the soul in silence</p>
+                    <p class="text-[10px] font-bold tracking-[0.4em] uppercase mt-2">Clothing the soul in silence</p>
                 </div>
                 <div class="text-right">
                     <div class="text-3xl font-black m-id">#0000</div>
-                    <div class="text-[10px] font-bold m-date text-slate-400"></div>
+                    <div class="text-[11px] font-bold m-date text-slate-400"></div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-10 mb-6 text-left">
+            <div class="grid grid-cols-2 gap-12 mb-10 text-left">
                 <div class="space-y-1">
-                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0 focus:ring-0" placeholder="CLIENT NAME">
-                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0" placeholder="PHONE NUMBER">
-                    <textarea class="m-addr w-full border-none h-14 text-[11px] p-0 mt-2 resize-none font-medium leading-tight focus:ring-0" placeholder="DELIVERY ADDRESS"></textarea>
+                    <input class="m-name w-full border-none font-black text-2xl uppercase p-0 focus:ring-0 placeholder:text-slate-200" placeholder="CUSTOMER NAME">
+                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0 placeholder:text-slate-200" placeholder="PHONE NUMBER">
+                    <textarea class="m-addr w-full border-none h-16 text-[12px] p-0 mt-2 resize-none font-medium leading-snug focus:ring-0 placeholder:text-slate-200" placeholder="DELIVERY ADDRESS"></textarea>
                 </div>
-                <div class="flex flex-col items-end">
-                    <span class="m-tag border-[3px] border-black px-4 py-1 font-black uppercase italic text-[10px]">Inside Dhaka</span>
+                <div class="text-right">
+                    <span class="m-tag border-[3px] border-black px-5 py-1.5 font-black uppercase italic text-[11px]">Inside Dhaka</span>
                 </div>
             </div>
 
-            <div class="flex-grow overflow-hidden">
+            <div class="flex-grow overflow-hidden text-left">
                 <table class="w-full">
                     <thead>
-                        <tr class="border-b-2 border-black font-black text-[10px] uppercase text-left">
-                            <th class="pb-2 w-8">SL</th>
-                            <th class="pb-2">Description</th>
-                            <th class="pb-2 text-center w-32">Attributes</th>
-                            <th class="pb-2 text-center w-16">Qty</th>
-                            <th class="pb-2 text-right w-24">Price</th>
-                            <th class="no-print w-6"></th>
+                        <tr class="border-b-2 border-black font-black text-[11px] uppercase">
+                            <th class="pb-3 w-10 text-left">SL</th>
+                            <th class="pb-3 text-left">Item Description</th>
+                            <th class="pb-3 text-center w-36">Variation</th>
+                            <th class="pb-3 text-center w-16">Qty</th>
+                            <th class="pb-3 text-right w-28">Amount</th>
+                            <th class="no-print w-8"></th>
                         </tr>
                     </thead>
-                    <tbody class="m-body font-bold italic text-[13px] leading-tight"></tbody>
+                    <tbody class="m-body font-bold italic text-[15px]"></tbody>
                 </table>
             </div>
 
-            <div class="mt-4 flex justify-between items-end border-t-2 border-slate-100 pt-4 text-left">
-                <div class="text-[8px] font-bold text-slate-400 uppercase leading-relaxed max-w-xs">
+            <div class="mt-8 flex justify-between items-end border-t border-slate-100 pt-6 text-left">
+                <div class="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
                     <p class="text-black font-black mb-1 italic">Studio Policy:</p>
                     <p>• 7-Day Exchange Only • Tags must be intact</p>
                     <p>• Delivery charge must be paid if returned</p>
                 </div>
-                <div class="w-48">
-                    <div class="flex justify-between text-slate-400 font-black text-[11px]"><span>SHIPPING</span><span class="m-s">60</span></div>
-                    <div class="flex justify-between border-t-2 border-black text-4xl font-black pt-1"><span>DUE</span><span class="m-t">0</span></div>
+                <div class="w-56 text-right">
+                    <div class="flex justify-between text-slate-400 font-black text-[12px] mb-1">
+                        <span>SHIPPING</span>
+                        <span class="m-s">60</span>
+                    </div>
+                    <div class="flex justify-between border-t-[3px] border-black text-5xl font-black pt-2">
+                        <span>TOTAL</span>
+                        <span class="m-t">0</span>
+                    </div>
                 </div>
             </div>
         </div>
     </template>
 
     <script>
+        // FIREBASE SETUP
+        const firebaseConfig = {
+            apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM",
+            authDomain: "onen-studio.firebaseapp.com",
+            projectId: "onen-studio",
+            storageBucket: "onen-studio.firebasestorage.app",
+            messagingSenderId: "1080236834241",
+            appId: "1:1080236834241:web:eb42c22b373714651e0340",
+            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
         const Inventory = {
-            data: JSON.parse(localStorage.getItem('ONEN_V90')) || [],
+            data: [],
+            init() {
+                db.ref('inventory').on('value', (snap) => {
+                    this.data = snap.val() ? Object.values(snap.val()) : [];
+                    this.render();
+                    document.getElementById('cloud-status').classList.add('online');
+                });
+            },
             save() {
                 const sku = document.getElementById('in-sku').value.trim().toUpperCase();
                 if(!sku) return;
-                this.data = this.data.filter(i => i.sku !== sku);
-                this.data.push({
+                db.ref('inventory/' + sku).set({
                     sku, name: document.getElementById('in-name').value,
                     price: parseFloat(document.getElementById('in-price').value) || 0,
                     cols: document.getElementById('in-cols').value.split(',').map(s => s.trim()),
                     sizes: document.getElementById('in-sizes').value.split(',').map(s => s.trim())
                 });
-                localStorage.setItem('ONEN_V90', JSON.stringify(this.data));
-                this.render(); this.clear();
+                this.clear();
             },
-            delete(e, sku) { e.stopPropagation(); if(confirm('Delete SKU?')) { this.data = this.data.filter(i => i.sku !== sku); localStorage.setItem('ONEN_V90', JSON.stringify(this.data)); this.render(); } },
+            delete(e, sku) { e.stopPropagation(); if(confirm('Delete from Cloud?')) db.ref('inventory/' + sku).remove(); },
             edit(sku) {
                 const p = this.data.find(i => i.sku === sku);
                 document.getElementById('in-sku').value = p.sku; document.getElementById('in-name').value = p.name;
                 document.getElementById('in-price').value = p.price; 
                 document.getElementById('in-cols').value = p.cols.join(', ');
                 document.getElementById('in-sizes').value = p.sizes.join(', ');
-                document.getElementById('save-btn').innerText = "UPDATE ITEM";
+                document.getElementById('save-btn').innerText = "UPDATE CLOUD";
+                UI.togglePivot(); 
             },
-            clear() { ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('save-btn').innerText = "SAVE PRODUCT"; },
+            clear() { ['in-sku','in-name','in-price','in-cols','in-sizes'].forEach(id => document.getElementById(id).value = ''); document.getElementById('save-btn').innerText = "SYNC TO CLOUD"; },
             render() {
-                const s = document.getElementById('prod-search').value.toUpperCase();
-                const filtered = this.data.filter(p => p.sku.includes(s) || p.name.toUpperCase().includes(s));
-                
+                const search = document.getElementById('prod-search').value.toUpperCase();
+                const filtered = this.data.filter(p => p.sku.includes(search) || p.name.toUpperCase().includes(search));
                 document.getElementById('catalog-list').innerHTML = filtered.map(p => `
-                    <div onclick="Core.prepItem('${p.sku}')" class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center cursor-pointer hover:border-amber-500/50 transition-all">
-                        <div class="text-left"><div class="text-[7px] text-amber-500 font-mono">[${p.sku}]</div><div class="text-[10px] font-black uppercase">${p.name}</div></div>
-                        <div class="text-[10px] font-black italic">$${p.price}</div>
+                    <div onclick="Core.prepItem('${p.sku}')" class="bg-white/5 p-4 rounded-2xl border border-white/5 flex justify-between items-center cursor-pointer hover:border-amber-500 transition-all">
+                        <div class="text-left"><div class="text-[8px] text-amber-500 font-mono">[${p.sku}]</div><div class="text-[11px] font-black uppercase">${p.name}</div></div>
+                        <div class="text-[11px] font-black italic">৳${p.price}</div>
                     </div>`).join('');
-                
                 document.getElementById('inventory-list').innerHTML = this.data.map(p => `
-                    <div class="bg-white/5 p-3 rounded-xl border border-white/5 flex justify-between items-center group">
-                        <div class="text-left"><div class="text-[9px] font-black">${p.sku} — ${p.name}</div><div class="text-[8px] text-slate-500 uppercase">${p.cols.join('/')} | ${p.sizes.join('/')}</div></div>
+                    <div class="bg-white/5 p-4 rounded-2xl border border-white/5 flex justify-between items-center">
+                        <div class="text-left"><div class="text-[10px] font-black">${p.sku} — ${p.name}</div><div class="text-[9px] text-white/30 uppercase">${p.cols.join('/')} | ${p.sizes.join('/')}</div></div>
                         <div class="flex gap-2">
-                            <button onclick="Inventory.edit('${p.sku}')" class="text-amber-500 text-[8px] font-bold border border-amber-500/10 px-2 py-1 rounded hover:bg-amber-500 hover:text-black">EDIT</button>
-                            <button onclick="Inventory.delete(event, '${p.sku}')" class="text-red-500 text-[8px] font-bold border border-red-500/10 px-2 py-1 rounded hover:bg-red-500 hover:text-white">DEL</button>
+                            <button onclick="Inventory.edit('${p.sku}')" class="text-amber-500 text-[9px] font-bold border border-amber-500/20 px-3 py-1.5 rounded-lg hover:bg-amber-500 hover:text-black transition">EDIT</button>
+                            <button onclick="Inventory.delete(event, '${p.sku}')" class="text-red-500 text-[9px] font-bold border border-red-500/20 px-3 py-1.5 rounded-lg hover:bg-red-500 hover:text-white transition">DEL</button>
                         </div>
                     </div>`).join('');
             }
         };
 
         const Core = {
-            seq: 5000, activeIdx: 0, pending: null,
-            init() { Inventory.render(); this.createNewMemo(); },
+            seq: 9500, activeIdx: 0, pending: null,
+            init() { Inventory.init(); this.createNewMemo(); },
             createNewMemo() {
                 const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
                 const card = tpl.querySelector('.memo-card');
@@ -230,7 +283,7 @@
                 document.getElementById('pdf-container').prepend(card);
                 setTimeout(() => this.selectMemo(card), 10);
             },
-            deleteMemo(e, btn) { e.stopPropagation(); if(confirm('Delete memo?')) { btn.closest('.memo-card').remove(); if(!document.querySelectorAll('.memo-card').length) this.createNewMemo(); else this.selectMemo(document.querySelectorAll('.memo-card')[0]); } },
+            deleteMemo(e, btn) { e.stopPropagation(); if(confirm('Remove this memo from session?')) { btn.closest('.memo-card').remove(); if(!document.querySelectorAll('.memo-card').length) this.createNewMemo(); else this.selectMemo(document.querySelectorAll('.memo-card')[0]); this.updateRevenue(); } },
             selectMemo(el) { 
                 document.querySelectorAll('.memo-card').forEach(c => c.classList.remove('active')); 
                 el.classList.add('active'); 
@@ -241,13 +294,11 @@
             getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
             processLocal() {
                 const box = document.getElementById('magic-box'); let raw = box.value; if(!raw) return;
-                const trans = {'নাম':'Name','ঠিকানা':'Address','ফোন':'Phone','ঢাকা':'Dhaka'};
-                Object.keys(trans).forEach(k => raw = raw.replace(new RegExp(k,'g'), trans[k]));
-                raw = raw.replace(/[০-৯]/g, d => ({'০':'0','১':'1','২':'2','৩':'3','৪':'4','৫':'5','৬':'6','৭':'7','৮':'8','৯':'9'}[d]));
-                const phone = (raw.match(/01[3-9]\d{8}/) || [""])[0];
-                const lines = raw.split('\n').filter(l => l.trim().length > 0);
+                const phoneMatch = raw.match(/01[3-9]\d{8}/);
+                const phone = phoneMatch ? phoneMatch[0] : "";
                 const active = this.getActive();
-                if(lines[0]) active.querySelector('.m-name').value = lines[0].replace(phone,'').replace(/[:,-]/g,'').trim().toUpperCase();
+                const lines = raw.split('\n').filter(l => l.trim().length > 0);
+                if(lines[0]) active.querySelector('.m-name').value = lines[0].toUpperCase();
                 if(phone) active.querySelector('.m-phone').value = phone;
                 if(lines.length > 1) active.querySelector('.m-addr').value = lines.slice(1).join(', ').replace(phone,'').trim();
             },
@@ -259,39 +310,61 @@
                 UI.toggleModal(true);
             },
             confirmInject() {
-                const colArray = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
-                const qtyPer = parseInt(document.getElementById('m-qty').value) || 1;
-                const totalQty = colArray.length * qtyPer;
-                const row = `
-                    <tr class="border-b border-slate-100">
-                        <td class="py-3 text-slate-300"></td>
-                        <td>${this.pending.name} <span class="text-[8px] font-mono text-slate-400">[${this.pending.sku}]</span></td>
-                        <td class="text-center">${colArray.join('/')}-${document.getElementById('m-sz').value}</td>
-                        <td class="text-center">${totalQty}</td>
-                        <td class="text-right font-black"><span class="r-p">${this.pending.price * totalQty}</span></td>
-                        <td class="no-print text-right"><button onclick="Core.removeRow(this)" class="text-red-400 px-1">×</button></td>
-                    </tr>`;
+                const cols = Array.from(document.getElementById('m-col').selectedOptions).map(o => o.value);
+                const qty = parseInt(document.getElementById('m-qty').value) || 1;
+                const totalQty = cols.length * qty;
+                const row = `<tr class="border-b border-slate-100">
+                    <td class="py-5 text-slate-300"></td>
+                    <td>${this.pending.name} <span class="text-[9px] font-mono text-slate-400 opacity-50">[${this.pending.sku}]</span></td>
+                    <td class="text-center">${cols.join('/')} — ${document.getElementById('m-sz').value}</td>
+                    <td class="text-center font-black">${totalQty}</td>
+                    <td class="text-right font-black">৳<span class="r-p">${this.pending.price * totalQty}</span></td>
+                    <td class="no-print text-right"><button onclick="this.closest('tr').remove(); Core.recalc();" class="text-red-400 px-2 font-bold hover:scale-125 transition">×</button></td>
+                </tr>`;
                 this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
                 this.recalc(); UI.toggleModal(false);
             },
-            removeRow(btn) { btn.closest('tr').remove(); this.recalc(); },
             setShipping(v, l) { const a = this.getActive(); a.querySelector('.m-s').innerText = v; a.querySelector('.m-tag').innerText = l; this.recalc(); },
             recalc() {
                 const a = this.getActive(); let total = 0;
                 a.querySelectorAll('.r-p').forEach(p => total += parseFloat(p.innerText));
                 a.querySelector('.m-t').innerText = total + parseFloat(a.querySelector('.m-s').innerText);
                 a.querySelectorAll('.m-body tr').forEach((tr, i) => tr.cells[0].innerText = i+1);
+                this.updateRevenue();
+            },
+            updateRevenue() {
+                let grand = 0; const memos = document.querySelectorAll('.memo-card');
+                memos.forEach(m => grand += parseFloat(m.querySelector('.m-t').innerText) || 0);
+                document.getElementById('rev-total').innerText = grand.toLocaleString();
+                document.getElementById('order-count').innerText = memos.length;
             },
             updateBatchList() {
-                document.getElementById('batch-list').innerHTML = Array.from(document.querySelectorAll('.memo-card')).map((c, i) => `
-                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="p-2 bg-white/5 rounded-lg text-[9px] cursor-pointer border ${i==this.activeIdx?'border-amber-500 bg-amber-500/10 font-bold':'border-transparent opacity-40'}">
-                        ${c.querySelector('.m-id').innerText} — ${c.querySelector('.m-name').value || 'New Entry'}
-                    </div>`).join('');
+                const filter = document.getElementById('batch-search').value.toUpperCase();
+                document.getElementById('batch-list').innerHTML = Array.from(document.querySelectorAll('.memo-card'))
+                .filter(c => c.querySelector('.m-name').value.toUpperCase().includes(filter) || c.querySelector('.m-id').innerText.includes(filter))
+                .map((c, i) => {
+                    const realIdx = Array.from(document.querySelectorAll('.memo-card')).indexOf(c);
+                    return `<div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${realIdx}])" class="p-3 bg-white/5 rounded-xl text-[10px] cursor-pointer border ${realIdx==this.activeIdx?'border-amber-500 bg-amber-500/10 font-bold':'border-transparent opacity-30'} transition-all">
+                        ${c.querySelector('.m-id').innerText} — ${c.querySelector('.m-name').value || 'DRAFT'}
+                    </div>`}).join('');
+            },
+            exportExcel() {
+                const data = Array.from(document.querySelectorAll('.memo-card')).map(m => ({
+                    'Memo ID': m.querySelector('.m-id').innerText,
+                    'Date': m.querySelector('.m-date').innerText,
+                    'Customer': m.querySelector('.m-name').value,
+                    'Phone': m.querySelector('.m-phone').value,
+                    'Address': m.querySelector('.m-addr').value,
+                    'Total Amount': m.querySelector('.m-t').innerText
+                }));
+                const ws = XLSX.utils.json_to_sheet(data);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, "Sales");
+                XLSX.writeFile(wb, `ONEN_STUDIO_SHEET_${new Date().toLocaleDateString()}.xlsx`);
             },
             exportPDF() {
                 document.querySelectorAll('.memo-card').forEach(c => c.classList.remove('active'));
-                const opt = { margin:0, filename:'ONEN_BATCH.pdf', html2canvas:{scale:2}, jsPDF:{unit:'mm', format:'a4', orientation:'portrait'} };
-                html2pdf().from(document.getElementById('pdf-container')).set(opt).save().then(()=>this.getActive().classList.add('active'));
+                html2pdf().from(document.getElementById('pdf-container')).set({ margin:0, filename:'ONEN_BATCH.pdf', html2canvas:{scale:2}, jsPDF:{unit:'mm', format:'a4'} }).save().then(()=>this.getActive().classList.add('active'));
             }
         };
 
@@ -300,23 +373,18 @@
                 const sidebar = document.getElementById('main-sidebar');
                 sidebar.classList.toggle('pivot-active');
                 const isInv = sidebar.classList.contains('pivot-active');
-                
                 document.getElementById('control-view').classList.add('hidden-view');
                 document.getElementById('inventory-view').classList.add('hidden-view');
-                
                 setTimeout(() => {
                     document.getElementById('control-view').style.display = isInv ? 'none' : 'flex';
                     document.getElementById('inventory-view').style.display = isInv ? 'flex' : 'none';
-                    setTimeout(() => {
-                        if(isInv) document.getElementById('inventory-view').classList.remove('hidden-view');
-                        else document.getElementById('control-view').classList.remove('hidden-view');
-                    }, 50);
-                }, 400);
+                    setTimeout(() => isInv ? document.getElementById('inventory-view').classList.remove('hidden-view') : document.getElementById('control-view').classList.remove('hidden-view'), 50);
+                }, 350);
             },
             toggleModal(s) {
                 const m = document.getElementById('modal-overlay');
-                m.style.display = s ? 'flex' : 'none';
-                setTimeout(() => m.children[0].style.transform = s ? 'scale(1)' : 'scale(0.9)', 10);
+                if(s) { m.classList.remove('hidden'); setTimeout(() => { m.classList.add('opacity-100'); m.children[0].classList.remove('scale-90'); }, 10); }
+                else { m.classList.remove('opacity-100'); m.children[0].classList.add('scale-90'); setTimeout(() => m.classList.add('hidden'), 300); }
             }
         };
         window.onload = () => Core.init();
