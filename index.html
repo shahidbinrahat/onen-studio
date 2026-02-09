@@ -3,506 +3,234 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | v100.5 Logistics</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <title>ONEN STUDIO | Logistics Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <!-- Firebase Realtime Database -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <!-- Firebase Auth (Required for secure live access) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-        
-        :root { 
-            --accent: #F59E0B; 
-            --smooth: cubic-bezier(0.16, 1, 0.3, 1);
-            --liquid: cubic-bezier(0.7, 0, 0.3, 1);
-        }
-
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: #000; 
-            color: white; 
-            overflow: hidden; 
-            margin: 0;
-            -webkit-font-smoothing: antialiased;
-        }
-        
-        /* UI Elements */
-        .glass { 
-            background: rgba(255,255,255,0.02); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 16px; 
-            transition: all 0.4s var(--smooth); 
-        }
-        .glass:focus-within {
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(245, 158, 11, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .view-panel { transition: all 0.6s var(--liquid); }
-        .view-hidden { display: none !important; opacity: 0; transform: translateY(20px); }
-
-        /* Memo Canvas */
-        .memo-card { 
-            width: 210mm; height: 148.5mm; background: white; color: black; 
-            margin: 0 auto 40px auto; display: flex; flex-direction: column; padding: 12mm;
-            position: relative; transition: all 0.8s var(--smooth); transform: scale(0.92); opacity: 0.1;
-            box-sizing: border-box; overflow: hidden;
-            border-radius: 4px;
-        }
-        .memo-card.active { transform: scale(1); opacity: 1; box-shadow: 0 50px 100px -20px rgba(0,0,0,0.8); }
-
-        .dustbin {
-            position: absolute; top: 20px; right: 20px; width: 40px; height: 40px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 50%; color: rgba(0,0,0,0.05); cursor: pointer; transition: 0.4s var(--smooth); z-index: 50;
-        }
-        .dustbin:hover { color: #ef4444; background: rgba(239, 68, 68, 0.05); transform: scale(1.1); }
-
-        .st-pending { color: #f59e0b; border-color: #f59e0b; background: transparent; }
-        .st-paid { color: #10b981; border-color: #10b981; background: transparent; }
-        .st-returned { color: #ef4444; border-color: #ef4444; background: transparent; }
-
-        /* Smooth Interactive elements */
-        button, .clickable {
-            transition: all 0.3s var(--smooth);
-            cursor: pointer;
-        }
-        button:active { transform: scale(0.96); }
-
-        /* Custom Scroll - Ultra Minimal */
-        ::-webkit-scrollbar { width: 3px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; transition: 0.3s; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
-
-        /* Print Optimization */
-        @media print { 
-            @page { size: A4; margin: 0; }
-            .no-print { display: none !important; } 
-            body { background: white; overflow: visible; }
-            #workspace { padding: 0 !important; }
-            .memo-card { 
-                opacity: 1!important; transform: scale(1)!important; 
-                margin: 0!important; box-shadow: none!important; 
-                border-bottom: 1px dashed #eee;
-                page-break-inside: avoid;
-            } 
-        }
-
-        /* Loading Dots Animation */
-        @keyframes pulse-sync {
-            0%, 100% { transform: scale(1); opacity: 0.5; }
-            50% { transform: scale(1.5); opacity: 1; }
-        }
-        .syncing { animation: pulse-sync 1s infinite var(--smooth); }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #e5e5e5; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .accent-border { border-left: 4px solid #3b82f6; }
+        .loading-shimmer { background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
     </style>
 </head>
-<body>
+<body class="min-h-screen p-4 md:p-8">
 
-    <div class="flex h-screen overflow-hidden">
-        <!-- NAV -->
-        <aside class="w-20 bg-[#000] border-r border-white/5 flex flex-col items-center py-10 no-print z-50">
-            <h1 class="text-amber-500 font-black italic text-2xl tracking-tighter mb-16 select-none">O.</h1>
-            <nav class="flex flex-col gap-10">
-                <button onclick="UI.show('ops')" class="nav-btn group" title="Operations">
-                    <i class="fa-solid fa-square-plus text-xl opacity-20 group-hover:opacity-100 group-hover:text-amber-500 transition-all"></i>
-                </button>
-                <button onclick="UI.show('hist')" class="nav-btn group" title="History">
-                    <i class="fa-solid fa-layer-group text-xl opacity-20 group-hover:opacity-100 group-hover:text-amber-500 transition-all"></i>
-                </button>
-            </nav>
-            <div id="sync-dot" class="w-1.5 h-1.5 rounded-full bg-amber-500 mt-auto opacity-0 transition-all duration-700 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
-        </aside>
+    <header class="max-w-7xl mx-auto mb-10 flex justify-between items-end">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tighter text-white">ONEN STUDIO <span class="text-blue-500">ENGINE</span></h1>
+            <p class="text-gray-400 text-sm mt-1 uppercase tracking-widest">Global Logistics Orchestration</p>
+        </div>
+        <div id="connection-status" class="text-[10px] uppercase tracking-widest text-gray-500 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div> Connecting...
+        </div>
+    </header>
 
-        <!-- PANEL -->
-        <aside class="w-80 bg-[#000] border-r border-white/5 p-8 overflow-y-auto no-print">
-            <div id="ops-view" class="view-panel space-y-8">
-                <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-amber-500 hover:shadow-[0_10px_30px_rgba(245,158,11,0.2)] transition-all">
-                    Create New Memo
-                </button>
-                
-                <div class="space-y-3">
-                    <label class="text-[10px] uppercase font-bold opacity-20 ml-1 tracking-[0.2em]">Inventory</label>
-                    <button onclick="GitHubSync.sync()" class="w-full py-4 bg-white/5 border border-white/5 text-white/60 font-black text-[10px] rounded-2xl uppercase hover:bg-white/10 hover:text-white transition-all">
-                        <i class="fa-brands fa-github-alt mr-2 opacity-50"></i> Sync Spreadsheet
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Command Center -->
+        <section class="lg:col-span-1 space-y-6">
+            <div class="glass p-6 rounded-2xl">
+                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
+                    </svg>
+                    New Shipment
+                </h2>
+                <form id="shipment-form" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Origin</label>
+                        <input type="text" id="origin" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="e.g. Shanghai Port">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-500 mb-1">Destination</label>
+                        <input type="text" id="destination" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="e.g. Rotterdam Terminal">
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Weight (kg)</label>
+                            <input type="number" id="weight" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Priority</label>
+                            <select id="priority" class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
+                                <option value="Standard">Standard</option>
+                                <option value="Express">Express</option>
+                                <option value="Critical">Critical</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg mt-4 transition-all active:scale-95">
+                        Dispatch Engine
                     </button>
-                </div>
+                </form>
+            </div>
 
-                <div class="space-y-3">
-                    <label class="text-[10px] uppercase font-bold opacity-20 ml-1 tracking-[0.2em]">Auto-Fill</label>
-                    <textarea id="magic-box" oninput="Core.processMagic()" class="glass w-full h-28 p-5 text-[12px] outline-none resize-none leading-relaxed" placeholder="Paste customer details here..."></textarea>
+            <!-- Stats Overview -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-4 rounded-xl text-center">
+                    <p class="text-xs text-gray-500">In Transit</p>
+                    <p id="stat-transit" class="text-2xl font-bold text-white">0</p>
+                </div>
+                <div class="glass p-4 rounded-xl text-center">
+                    <p class="text-xs text-gray-500">Delivered</p>
+                    <p id="stat-delivered" class="text-2xl font-bold text-green-500">0</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Feed -->
+        <section class="lg:col-span-2">
+            <div class="glass p-6 rounded-2xl h-full flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-lg font-semibold">Active Manifests</h2>
+                    <span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded uppercase">Real-time Sync</span>
                 </div>
                 
-                <div class="pt-6 border-t border-white/5">
-                    <div class="relative">
-                        <input id="cat-search" oninput="Inventory.render()" class="glass w-full p-4 pl-10 text-[11px]" placeholder="Search product line...">
-                        <i class="fa-solid fa-magnifying-glass absolute left-4 top-4.5 text-[10px] opacity-20"></i>
-                    </div>
-                    <div id="cat-list" class="space-y-3 h-[45vh] overflow-y-auto mt-6 pr-2"></div>
+                <div id="shipment-list" class="space-y-4 flex-grow overflow-y-auto max-h-[600px] pr-2">
+                    <!-- Shimmer Loading -->
+                    <div class="loading-shimmer h-24 w-full rounded-xl opacity-20"></div>
+                    <div class="loading-shimmer h-24 w-full rounded-xl opacity-10"></div>
                 </div>
             </div>
+        </section>
 
-            <div id="hist-view" class="view-panel view-hidden space-y-3">
-                <label class="text-[10px] uppercase font-bold opacity-20 ml-1 tracking-[0.2em]">Active Records</label>
-                <div id="history-list" class="space-y-3"></div>
-            </div>
-        </aside>
-
-        <!-- CANVAS -->
-        <main class="flex-grow bg-[#050505] overflow-y-auto p-16 relative">
-            <div id="workspace" class="pb-64 max-w-5xl mx-auto"></div>
-            
-            <!-- CONTROLS -->
-            <div class="fixed bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-4 bg-[#111]/80 backdrop-blur-3xl p-5 rounded-[2.5rem] border border-white/10 no-print shadow-[0_30px_60px_rgba(0,0,0,0.5)] z-[200]">
-                <div class="flex bg-white/5 rounded-2xl p-1.5 mr-2">
-                    <button onclick="Core.setShip(60, 'Dhaka')" class="px-5 py-2.5 text-[10px] font-black uppercase rounded-xl hover:bg-white/5 hover:text-amber-500">Dhaka</button>
-                    <button onclick="Core.setShip(120, 'Outside')" class="px-5 py-2.5 text-[10px] font-black uppercase rounded-xl hover:bg-white/5 hover:text-amber-500">Outside</button>
-                </div>
-                
-                <button onclick="Logistics.exportCSV()" class="px-8 py-2.5 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black rounded-2xl uppercase tracking-widest hover:bg-amber-500 hover:text-black shadow-lg shadow-amber-500/5 transition-all">
-                    Export Logistics
-                </button>
-
-                <button onclick="window.print()" class="px-10 py-2.5 bg-white text-black text-[10px] font-black rounded-2xl uppercase tracking-widest shadow-xl shadow-white/5 hover:scale-105">
-                    Print / PDF
-                </button>
-            </div>
-        </main>
-    </div>
-
-    <!-- PRODUCT MODAL -->
-    <div id="modal" class="fixed inset-0 bg-black/98 hidden items-center justify-center z-[300] backdrop-blur-sm">
-        <div class="bg-[#111] p-12 rounded-[3rem] w-[450px] text-center border border-white/10 shadow-2xl">
-            <h2 id="m-title" class="text-3xl font-black uppercase text-amber-500 mb-2 italic tracking-tighter"></h2>
-            <div id="m-stock-info" class="text-[10px] opacity-30 mb-8 uppercase tracking-[0.3em]"></div>
-            
-            <div class="grid grid-cols-2 gap-6 mb-8 text-left">
-                <div class="col-span-2">
-                    <label class="text-[10px] uppercase opacity-20 font-bold tracking-widest ml-1">Variations</label>
-                    <div id="m-col-container" class="flex flex-wrap gap-2 mt-2"></div>
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase opacity-20 font-bold tracking-widest ml-1">Size</label>
-                    <div id="m-sz-container" class="flex flex-wrap gap-2 mt-2"></div>
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase opacity-20 font-bold tracking-widest ml-1">Qty</label>
-                    <input id="m-qty" type="number" value="1" min="1" class="glass w-full p-4 mt-2 text-[14px] font-bold">
-                </div>
-            </div>
-            
-            <button onclick="Core.confirmAdd()" class="w-full py-5 bg-amber-500 text-black font-extrabold rounded-2xl text-[12px] uppercase tracking-widest shadow-2xl shadow-amber-500/20 active:scale-95 transition-all">Add to Cart</button>
-            <button onclick="UI.modal(false)" class="mt-6 text-[10px] opacity-20 font-bold uppercase hover:opacity-100 transition tracking-widest">Nevermind</button>
-        </div>
-    </div>
-
-    <!-- MEMO TEMPLATE -->
-    <template id="memo-tpl">
-        <div class="memo-card" onclick="Core.selectMemo(this)">
-            <div onclick="Core.deleteMemo(event, this)" class="dustbin no-print"><i class="fa-solid fa-trash-can text-sm"></i></div>
-            
-            <div class="flex justify-between border-b-[8px] border-black pb-6 mb-8">
-                <div>
-                    <h1 class="text-6xl font-black italic tracking-tighter leading-none">ONEN</h1>
-                    <p class="text-[9px] font-bold tracking-[0.5em] uppercase mt-2 opacity-40">Artifacts for the silent soul</p>
-                </div>
-                <div class="text-right">
-                    <div class="text-3xl font-black m-id tracking-tighter">#0000</div>
-                    <div class="text-[11px] font-bold m-date text-slate-300 uppercase tracking-widest mt-1"></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-2 gap-12 mb-8">
-                <div class="space-y-1">
-                    <input class="m-name w-full border-none font-black text-2xl p-0 focus:ring-0 uppercase placeholder:opacity-10" placeholder="NAME" oninput="Core.cloudSync()">
-                    <input class="m-phone w-full border-none font-bold text-lg p-0 focus:ring-0 placeholder:opacity-10" placeholder="PHONE" oninput="Core.cloudSync()">
-                    <textarea class="m-addr w-full border-none text-[12px] h-16 p-0 resize-none focus:ring-0 leading-snug placeholder:opacity-10 font-medium" placeholder="ADDRESS" oninput="Core.cloudSync()"></textarea>
-                </div>
-                <div class="text-right space-y-3">
-                    <span class="m-tag border-[3px] border-black px-6 py-2 text-[11px] font-black uppercase inline-block italic tracking-widest">DHAKA</span><br>
-                    <button onclick="Core.toggleStatus(this)" class="m-status no-print border-[2.5px] px-4 py-1.5 text-[9px] font-black uppercase rounded-full st-pending">PENDING</button>
-                </div>
-            </div>
-
-            <div class="flex-grow">
-                <table class="w-full text-[13px]">
-                    <thead class="border-b-[2px] border-black font-black text-[10px] uppercase text-left">
-                        <tr>
-                            <th class="pb-3 w-10">SL</th>
-                            <th class="pb-3">ITEM DESCRIPTION</th>
-                            <th class="pb-3 text-center w-28">VAR</th>
-                            <th class="pb-3 text-center w-12">QTY</th>
-                            <th class="pb-3 text-right w-24">PRICE</th>
-                            <th class="no-print w-10"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="m-body font-bold italic"></tbody>
-                </table>
-            </div>
-
-            <div class="mt-8 border-t border-slate-100 pt-6 flex justify-between items-end">
-                <div class="text-[9px] font-bold text-slate-400 uppercase leading-relaxed">
-                    <p class="text-black font-black italic mb-1 tracking-widest">Policy:</p>
-                    <p>7-Day Exchange Window • Tags Must be Intact</p>
-                    <p class="mt-2 text-[8px] lowercase opacity-40 font-medium">onen.studio / tailored in silence</p>
-                </div>
-                <div class="text-right w-48">
-                    <div class="flex justify-between text-slate-400 font-bold text-[11px] mb-1"><span>DELIVERY</span><span class="m-s-val">0</span></div>
-                    <div class="flex justify-between border-t-[2.5px] border-black pt-2 font-black">
-                        <span class="text-[12px] mt-2">TOTAL</span>
-                        <span class="text-5xl m-total tracking-tighter leading-none">0</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </template>
+    </main>
 
     <script>
-        const GITHUB = { user: 'onen-studio', repo: 'management', path: 'inventory.csv' };
-        const STORE_NAME = "ONEN STUDIO";
-
-        const firebaseConfig = { 
-            apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", 
-            authDomain: "onen-studio.firebaseapp.com", 
-            projectId: "onen-studio", 
-            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com" 
+        // --- CONFIGURATION ---
+        // Replace with your actual Firebase config from console.firebase.google.com
+        const firebaseConfig = {
+            apiKey: "", // Left empty for dynamic environment insertion
+            authDomain: "onen-studio.firebaseapp.com",
+            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com",
+            projectId: "onen-studio",
+            storageBucket: "onen-studio.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:12345:web:abcde"
         };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
 
-        const Logistics = {
-            exportCSV() {
-                const headers = ["ItemType","StoreName","MerchantOrderId","RecipientName(*)","RecipientPhone(*)","RecipientAddress(*)","RecipientCity(*)","RecipientZone(*)","RecipientArea","AmountToCollect(*)","ItemQuantity","ItemWeight","ItemDesc","SpecialInstruction"];
-                const cards = Array.from(document.querySelectorAll('.memo-card'));
-                const rows = cards.map(c => {
-                    const name = c.querySelector('.m-name').value;
-                    const phone = c.querySelector('.m-phone').value;
-                    const addr = c.querySelector('.m-addr').value.replace(/,/g, ' ');
-                    const total = c.querySelector('.m-total').innerText.replace(/,/g, '');
-                    const id = c.querySelector('.m-id').innerText;
-                    const city = c.querySelector('.m-tag').innerText.includes('DHAKA') ? 'Dhaka' : 'Outside Dhaka';
-                    return ["parcel", STORE_NAME, id, name, phone, `"${addr}"`, city, "parcel", STORE_NAME, total, "1", "0.5", "", "Deliver ASAP"].join(",");
+        // Initialize Firebase
+        const app = firebaseApp.initializeApp(firebaseConfig);
+        const db = firebaseApp.database();
+        const auth = firebaseApp.auth();
+
+        // --- AUTHENTICATION (The "Make it Live" fix) ---
+        // This logs the user in anonymously so the database rules work securely
+        function initSession() {
+            auth.signInAnonymously()
+                .then(() => {
+                    const statusEl = document.getElementById('connection-status');
+                    statusEl.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected Live`;
+                    startApp();
+                })
+                .catch((error) => {
+                    console.error("Auth failed:", error);
+                    document.getElementById('connection-status').innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Error`;
                 });
-                const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.join("\n");
-                const link = document.createElement("a");
-                link.setAttribute("href", encodeURI(csvContent));
-                link.setAttribute("download", `ONEN_LOGISTICS_${new Date().toISOString().split('T')[0]}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            }
-        };
+        }
 
-        const GitHubSync = {
-            async sync() {
-                const dot = document.getElementById('sync-dot');
-                dot.classList.add('syncing'); dot.style.opacity = 1;
-                try {
-                    const res = await fetch(`https://raw.githubusercontent.com/${GITHUB.user}/${GITHUB.repo}/main/${GITHUB.path}?t=${Date.now()}`);
-                    const text = await res.text();
-                    const rows = text.split('\n').filter(r => r.trim()).slice(1);
-                    const items = {};
-                    rows.forEach(r => {
-                        const [sku, name, price, stock, cols, sizes] = r.split(',').map(s => s?.trim());
-                        if(sku) items[sku] = { sku, name, price: parseFloat(price), stock: parseInt(stock), cols: cols.split('|'), sizes: sizes.split('|') };
-                    });
-                    await db.ref('inventory').set(items);
-                } catch(e) { console.error(e); }
-                setTimeout(() => { dot.classList.remove('syncing'); dot.style.opacity = 0; }, 1000);
-            }
-        };
+        function startApp() {
+            const form = document.getElementById('shipment-form');
+            const list = document.getElementById('shipment-list');
+            const statTransit = document.getElementById('stat-transit');
+            const statDelivered = document.getElementById('stat-delivered');
 
-        const Inventory = {
-            data: [],
-            selectedColor: null,
-            selectedSize: null,
-            init() { db.ref('inventory').on('value', snap => { this.data = snap.val() ? Object.values(snap.val()) : []; this.render(); }); },
-            render() {
-                const s = document.getElementById('cat-search').value.toUpperCase();
-                const filtered = this.data.filter(p => p.sku.includes(s) || p.name.toUpperCase().includes(s));
-                document.getElementById('cat-list').innerHTML = filtered.map(p => `
-                    <div onclick="Core.prepItem('${p.sku}')" class="glass p-5 cursor-pointer hover:border-amber-500/50 hover:bg-white/5 transition-all group">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <h3 class="text-[11px] font-black uppercase tracking-widest text-white/80 group-hover:text-amber-500">${p.name}</h3>
-                                <p class="text-[9px] font-bold opacity-30 mt-1 tracking-tighter">${p.sku}</p>
+            // Handle Submission
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                const newShipment = {
+                    origin: document.getElementById('origin').value,
+                    destination: document.getElementById('destination').value,
+                    weight: document.getElementById('weight').value,
+                    priority: document.getElementById('priority').value,
+                    status: 'In Transit',
+                    timestamp: firebaseApp.database.ServerValue.TIMESTAMP
+                };
+
+                db.ref('shipments').push(newShipment);
+                form.reset();
+            });
+
+            // Sync Data
+            db.ref('shipments').on('value', (snapshot) => {
+                const data = snapshot.val();
+                list.innerHTML = '';
+                let transitCount = 0;
+                let deliveredCount = 0;
+
+                if (!data) {
+                    list.innerHTML = '<div class="text-center py-10 text-gray-600 italic">No shipments found in manifest.</div>';
+                    return;
+                }
+
+                // Convert object to array and sort by timestamp
+                const items = Object.entries(data).reverse();
+
+                items.forEach(([id, item]) => {
+                    if (item.status === 'In Transit') transitCount++;
+                    else deliveredCount++;
+
+                    const card = document.createElement('div');
+                    card.className = 'glass p-5 rounded-xl accent-border flex justify-between items-center group transition-all hover:bg-white/5';
+                    card.innerHTML = `
+                        <div class="space-y-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-blue-400 uppercase tracking-tighter">${id.substring(1, 8)}</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded ${item.priority === 'Critical' ? 'bg-red-500/20 text-red-400' : 'bg-gray-800 text-gray-400'}">
+                                    ${item.priority}
+                                </span>
                             </div>
-                            <div class="text-right">
-                                <p class="text-[11px] font-black">${p.price} BDT</p>
-                                <p class="text-[8px] uppercase font-bold text-amber-500/50 mt-1">${p.stock} units</p>
+                            <div class="text-sm font-medium text-white flex items-center gap-2">
+                                ${item.origin} 
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg> 
+                                ${item.destination}
+                            </div>
+                            <div class="text-[10px] text-gray-500">${item.weight} kg • ${new Date(item.timestamp).toLocaleString()}</div>
+                        </div>
+                        <div class="flex flex-col items-end gap-2">
+                            <span class="text-xs ${item.status === 'Delivered' ? 'text-green-500' : 'text-blue-500'} font-semibold">
+                                ${item.status}
+                            </span>
+                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                ${item.status === 'In Transit' ? 
+                                    `<button onclick="updateStatus('${id}', 'Delivered')" class="text-[10px] bg-green-600/20 text-green-500 px-2 py-1 rounded hover:bg-green-600 hover:text-white transition-colors">Deliver</button>` : 
+                                    `<button onclick="deleteShipment('${id}')" class="text-[10px] bg-red-600/20 text-red-500 px-2 py-1 rounded hover:bg-red-600 hover:text-white transition-colors">Archive</button>`
+                                }
                             </div>
                         </div>
-                    </div>`).join('');
-            }
-        };
-
-        const Core = {
-            activeIdx: 0, pending: null,
-            init() { 
-                Inventory.init(); 
-                db.ref('session_memos').once('value', snap => {
-                    const saved = snap.val();
-                    if(saved && saved.length > 0) saved.forEach(m => this.injectMemo(m));
-                    else this.createNewMemo();
+                    `;
+                    list.appendChild(card);
                 });
-            },
-            createNewMemo() {
-                this.injectMemo({ id: '#'+(Date.now().toString().slice(-4)), name: '', phone: '', addr: '', ship: 0, tag: 'DHAKA', status: 'PENDING', date: new Date().toLocaleDateString('en-GB') });
-            },
-            injectMemo(data) {
-                const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
-                const card = tpl.querySelector('.memo-card');
-                card.querySelector('.m-id').innerText = data.id;
-                card.querySelector('.m-date').innerText = data.date;
-                card.querySelector('.m-name').value = data.name || '';
-                card.querySelector('.m-phone').value = data.phone || '';
-                card.querySelector('.m-addr').value = data.addr || '';
-                card.querySelector('.m-s-val').innerText = data.ship || 0;
-                card.querySelector('.m-tag').innerText = data.tag || 'DHAKA';
-                const st = card.querySelector('.m-status');
-                st.innerText = data.status || 'PENDING';
-                st.className = `m-status no-print border-[2.5px] px-4 py-1.5 text-[9px] font-black uppercase rounded-full st-${(data.status || 'PENDING').toLowerCase()}`;
-                
-                document.getElementById('workspace').prepend(card);
-                setTimeout(() => { card.classList.add('active'); this.selectMemo(card); }, 50);
-            },
-            selectMemo(el) {
-                document.querySelectorAll('.memo-card').forEach(c => c.classList.remove('active'));
-                el.classList.add('active');
-                this.activeIdx = Array.from(document.querySelectorAll('.memo-card')).indexOf(el);
-                this.updateHistory();
-            },
-            getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
-            processMagic() {
-                const v = document.getElementById('magic-box').value;
-                const phone = (v.match(/01[3-9]\d{8}/) || [""])[0];
-                const active = this.getActive();
-                if(!active) return;
-                
-                const lines = v.split('\n').map(l => l.trim()).filter(l => l);
-                active.querySelector('.m-name').value = (lines[0] || "").toUpperCase();
-                active.querySelector('.m-phone').value = phone;
-                active.querySelector('.m-addr').value = v.replace(phone,'').replace(lines[0],'').trim();
-                this.cloudSync();
-            },
-            prepItem(sku) {
-                this.pending = Inventory.data.find(i => i.sku === sku);
-                Inventory.selectedColor = this.pending.cols[0];
-                Inventory.selectedSize = this.pending.sizes[0];
-                
-                document.getElementById('m-title').innerText = this.pending.name;
-                document.getElementById('m-stock-info').innerText = `Stock: ${this.pending.stock} Units Available`;
-                
-                const colContainer = document.getElementById('m-col-container');
-                colContainer.innerHTML = this.pending.cols.map(c => `
-                    <button onclick="Core.setVar('color', '${c}', this)" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-bold uppercase hover:bg-white/5 ${c===Inventory.selectedColor?'bg-amber-500 text-black border-amber-500':''}">${c}</button>
-                `).join('');
 
-                const szContainer = document.getElementById('m-sz-container');
-                szContainer.innerHTML = this.pending.sizes.map(s => `
-                    <button onclick="Core.setVar('size', '${s}', this)" class="px-4 py-2 border border-white/10 rounded-xl text-[10px] font-bold uppercase hover:bg-white/5 ${s===Inventory.selectedSize?'bg-amber-500 text-black border-amber-500':''}">${s}</button>
-                `).join('');
+                statTransit.innerText = transitCount;
+                statDelivered.innerText = deliveredCount;
+            });
+        }
 
-                UI.modal(true);
-            },
-            setVar(type, val, btn) {
-                const parent = btn.parentElement;
-                parent.querySelectorAll('button').forEach(b => b.classList.remove('bg-amber-500', 'text-black', 'border-amber-500'));
-                btn.classList.add('bg-amber-500', 'text-black', 'border-amber-500');
-                if(type === 'color') Inventory.selectedColor = val;
-                else Inventory.selectedSize = val;
-            },
-            confirmAdd() {
-                const qty = parseInt(document.getElementById('m-qty').value) || 1;
-                const row = `<tr class="border-b border-slate-50 group">
-                    <td class="py-4 opacity-20 group-hover:opacity-100 transition-opacity"></td>
-                    <td class="uppercase py-4">
-                        <div class="font-black text-[12px]">${this.pending.name}</div>
-                        <div class="text-[8px] opacity-30 mt-0.5 tracking-widest font-bold">${this.pending.sku}</div>
-                    </td>
-                    <td class="text-center uppercase text-[10px] font-black">${Inventory.selectedColor}-${Inventory.selectedSize}</td>
-                    <td class="text-center font-black">${qty}</td>
-                    <td class="text-right font-black r-price">${(this.pending.price * qty).toLocaleString()}</td>
-                    <td class="no-print text-right">
-                        <button onclick="this.closest('tr').remove(); Core.recalc();" class="w-8 h-8 rounded-full hover:bg-red-50 text-red-200 hover:text-red-500 transition-all">×</button>
-                    </td>
-                </tr>`;
-                this.getActive().querySelector('.m-body').insertAdjacentHTML('beforeend', row);
-                this.recalc(); UI.modal(false);
-            },
-            toggleStatus(btn) {
-                const cycle = { 'PENDING': 'PAID', 'PAID': 'RETURNED', 'RETURNED': 'PENDING' };
-                btn.innerText = cycle[btn.innerText];
-                btn.className = `m-status no-print border-[2.5px] px-4 py-1.5 text-[9px] font-black uppercase rounded-full st-${btn.innerText.toLowerCase()}`;
-                this.cloudSync();
-            },
-            setShip(v, l) {
-                const a = this.getActive();
-                if(!a) return;
-                a.querySelector('.m-s-val').innerText = v;
-                a.querySelector('.m-tag').innerText = l.toUpperCase();
-                this.recalc();
-            },
-            recalc() {
-                const a = this.getActive();
-                if(!a) return;
-                let total = 0; 
-                a.querySelectorAll('.r-price').forEach(p => total += parseFloat(p.innerText.replace(/,/g,'')));
-                const ship = parseFloat(a.querySelector('.m-s-val').innerText);
-                a.querySelector('.m-total').innerText = (total + ship).toLocaleString();
-                a.querySelectorAll('.m-body tr').forEach((tr, i) => tr.cells[0].innerText = String(i + 1).padStart(2, '0'));
-                this.cloudSync();
-            },
-            deleteMemo(e, b) { 
-                e.stopPropagation(); 
-                const card = b.closest('.memo-card');
-                card.style.transform = 'scale(0.8) translateY(50px)';
-                card.style.opacity = '0';
-                setTimeout(() => { card.remove(); this.cloudSync(); this.updateHistory(); }, 400);
-            },
-            cloudSync() {
-                const dot = document.getElementById('sync-dot');
-                dot.style.opacity = 1;
-                const memos = Array.from(document.querySelectorAll('.memo-card')).map(m => ({
-                    id: m.querySelector('.m-id').innerText, 
-                    name: m.querySelector('.m-name').value, 
-                    phone: m.querySelector('.m-phone').value,
-                    addr: m.querySelector('.m-addr').value, 
-                    ship: m.querySelector('.m-s-val').innerText, 
-                    tag: m.querySelector('.m-tag').innerText, 
-                    status: m.querySelector('.m-status').innerText, 
-                    date: m.querySelector('.m-date').innerText
-                }));
-                db.ref('session_memos').set(memos).then(() => setTimeout(() => dot.style.opacity = 0, 800));
-            },
-            updateHistory() {
-                document.getElementById('history-list').innerHTML = Array.from(document.querySelectorAll('.memo-card')).map((c, i) => `
-                    <div onclick="Core.selectMemo(document.querySelectorAll('.memo-card')[${i}])" class="glass p-5 cursor-pointer ${i==this.activeIdx?'border-amber-500 bg-amber-500/5':'opacity-40 hover:opacity-100'} transition-all group">
-                        <div class="flex justify-between items-start">
-                            <span class="text-[10px] font-black tracking-tighter text-amber-500">${c.querySelector('.m-id').innerText}</span>
-                            <span class="text-[8px] font-bold opacity-30">${c.querySelector('.m-date').innerText}</span>
-                        </div>
-                        <div class="text-[11px] font-black uppercase mt-2 truncate">${c.querySelector('.m-name').value || 'New Entry'}</div>
-                    </div>`).join('');
+        // Action Handlers
+        window.updateStatus = (id, newStatus) => {
+            db.ref(`shipments/${id}`).update({ status: newStatus });
+        };
+
+        window.deleteShipment = (id) => {
+            if(confirm('Archive this shipment from the live manifest?')) {
+                db.ref(`shipments/${id}`).remove();
             }
         };
 
-        const UI = {
-            show(v) { 
-                document.querySelectorAll('.view-panel').forEach(p => p.classList.add('view-hidden')); 
-                document.getElementById(v + '-view').classList.remove('view-hidden'); 
-            },
-            modal(s) { 
-                const m = document.getElementById('modal');
-                if(s) { m.classList.remove('hidden'); m.classList.add('flex'); }
-                else { m.classList.add('hidden'); m.classList.remove('flex'); }
-            }
-        };
+        // Start Auth Flow
+        window.onload = initSession;
 
-        window.onload = () => Core.init();
     </script>
 </body>
 </html>
