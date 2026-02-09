@@ -4,99 +4,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ONEN STUDIO | Logistics Engine</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase App (the core Firebase SDK) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <!-- Firebase Realtime Database -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <!-- Firebase Auth (Required for secure live access) -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #0a0a0a; color: #e5e5e5; }
-        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }
-        .accent-border { border-left: 4px solid #3b82f6; }
-        .loading-shimmer { background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        
+        :root { 
+            --accent: #F59E0B; 
+            --smooth: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #000; 
+            color: #fff;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Apple Glassmorphism */
+        .glass { 
+            background: rgba(255, 255, 255, 0.03); 
+            backdrop-filter: blur(25px) saturate(180%);
+            -webkit-backdrop-filter: blur(25px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.08); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
+        }
+
+        .input-glass {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            transition: all 0.3s var(--smooth);
+        }
+
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1);
+            outline: none;
+        }
+
+        .btn-primary {
+            background: #fff;
+            color: #000;
+            font-weight: 800;
+            transition: all 0.4s var(--smooth);
+        }
+
+        .btn-primary:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.4);
+        }
+
+        .btn-primary:active { transform: scale(0.96); }
+
+        /* Animation */
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-slide { animation: slideUp 0.8s var(--smooth) forwards; }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
-<body class="min-h-screen p-4 md:p-8">
+<body class="min-h-screen p-6 md:p-12">
 
-    <header class="max-w-7xl mx-auto mb-10 flex justify-between items-end">
+    <header class="max-w-7xl mx-auto mb-16 flex justify-between items-end animate-slide">
         <div>
-            <h1 class="text-3xl font-bold tracking-tighter text-white">ONEN STUDIO <span class="text-blue-500">ENGINE</span></h1>
-            <p class="text-gray-400 text-sm mt-1 uppercase tracking-widest">Global Logistics Orchestration</p>
+            <h1 class="text-4xl font-black tracking-tighter italic text-white leading-none">ONEN STUDIO <span class="text-amber-500">ENGINE</span></h1>
+            <p class="text-white/30 text-[10px] uppercase font-bold tracking-[0.4em] mt-3">Global Logistics Orchestration v2.0</p>
         </div>
-        <div id="connection-status" class="text-[10px] uppercase tracking-widest text-gray-500 flex items-center gap-2">
-            <div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div> Connecting...
+        <div id="connection-status" class="glass px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div> Connecting...
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8">
         
-        <!-- Command Center -->
-        <section class="lg:col-span-1 space-y-6">
-            <div class="glass p-6 rounded-2xl">
-                <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v2H7a1 1 0 100 2h2v2a1 1 0 102 0v-2h2a1 1 0 100-2h-2V7z" clip-rule="evenodd" />
-                    </svg>
-                    New Shipment
+        <!-- Sidebar Controls -->
+        <section class="lg:col-span-4 space-y-8 animate-slide" style="animation-delay: 0.1s">
+            <div class="glass p-8 rounded-[2.5rem]">
+                <h2 class="text-xs font-black uppercase tracking-widest text-amber-500 mb-8 flex items-center gap-3">
+                    <i class="fa-solid fa-plus-circle"></i> New Dispatch
                 </h2>
-                <form id="shipment-form" class="space-y-4">
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Origin</label>
-                        <input type="text" id="origin" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="e.g. Shanghai Port">
+                <form id="shipment-form" class="space-y-6">
+                    <div class="space-y-2">
+                        <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Origin Terminal</label>
+                        <input type="text" id="origin" required class="input-glass w-full p-4 text-sm font-medium" placeholder="Shanghai CNSHA">
                     </div>
-                    <div>
-                        <label class="block text-xs text-gray-500 mb-1">Destination</label>
-                        <input type="text" id="destination" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors" placeholder="e.g. Rotterdam Terminal">
+                    <div class="space-y-2">
+                        <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Destination Hub</label>
+                        <input type="text" id="destination" required class="input-glass w-full p-4 text-sm font-medium" placeholder="Rotterdam NLRTM">
                     </div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">Weight (kg)</label>
-                            <input type="number" id="weight" required class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
+                        <div class="space-y-2">
+                            <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Weight (kg)</label>
+                            <input type="number" id="weight" required class="input-glass w-full p-4 text-sm font-medium">
                         </div>
-                        <div>
-                            <label class="block text-xs text-gray-500 mb-1">Priority</label>
-                            <select id="priority" class="w-full bg-black border border-white/10 rounded-lg p-3 text-white focus:outline-none focus:border-blue-500 transition-colors">
+                        <div class="space-y-2">
+                            <label class="text-[9px] font-black uppercase opacity-30 ml-1 tracking-widest">Priority</label>
+                            <select id="priority" class="input-glass w-full p-4 text-sm font-medium appearance-none">
                                 <option value="Standard">Standard</option>
                                 <option value="Express">Express</option>
                                 <option value="Critical">Critical</option>
                             </select>
                         </div>
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 rounded-lg mt-4 transition-all active:scale-95">
-                        Dispatch Engine
+                    <button type="submit" class="w-full btn-primary py-4 rounded-2xl text-[11px] uppercase tracking-[0.2em] mt-4">
+                        Initialize Dispatch
                     </button>
                 </form>
             </div>
 
-            <!-- Stats Overview -->
             <div class="grid grid-cols-2 gap-4">
-                <div class="glass p-4 rounded-xl text-center">
-                    <p class="text-xs text-gray-500">In Transit</p>
-                    <p id="stat-transit" class="text-2xl font-bold text-white">0</p>
+                <div class="glass p-6 rounded-3xl">
+                    <p class="text-[9px] font-black opacity-30 uppercase tracking-widest mb-1">In Transit</p>
+                    <p id="stat-transit" class="text-3xl font-black italic">0</p>
                 </div>
-                <div class="glass p-4 rounded-xl text-center">
-                    <p class="text-xs text-gray-500">Delivered</p>
-                    <p id="stat-delivered" class="text-2xl font-bold text-green-500">0</p>
+                <div class="glass p-6 rounded-3xl">
+                    <p class="text-[9px] font-black opacity-30 uppercase tracking-widest mb-1">Delivered</p>
+                    <p id="stat-delivered" class="text-3xl font-black italic text-amber-500">0</p>
                 </div>
             </div>
         </section>
 
-        <!-- Live Feed -->
-        <section class="lg:col-span-2">
-            <div class="glass p-6 rounded-2xl h-full flex flex-col">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 class="text-lg font-semibold">Active Manifests</h2>
-                    <span class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded uppercase">Real-time Sync</span>
+        <!-- Manifest Display -->
+        <section class="lg:col-span-8 animate-slide" style="animation-delay: 0.2s">
+            <div class="glass p-8 rounded-[2.5rem] min-h-[600px] flex flex-col">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-xs font-black uppercase tracking-widest">Live Manifest</h2>
+                    <div class="flex gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                        <div class="w-1.5 h-1.5 rounded-full bg-white/10"></div>
+                    </div>
                 </div>
                 
-                <div id="shipment-list" class="space-y-4 flex-grow overflow-y-auto max-h-[600px] pr-2">
-                    <!-- Shimmer Loading -->
-                    <div class="loading-shimmer h-24 w-full rounded-xl opacity-20"></div>
-                    <div class="loading-shimmer h-24 w-full rounded-xl opacity-10"></div>
+                <div id="shipment-list" class="space-y-4 flex-grow overflow-y-auto pr-2">
+                    <!-- Shimmer -->
+                    <div class="h-24 w-full glass rounded-3xl opacity-20 animate-pulse"></div>
                 </div>
             </div>
         </section>
@@ -104,107 +159,90 @@
     </main>
 
     <script>
-        // --- CONFIGURATION ---
-        // Replace with your actual Firebase config from console.firebase.google.com
         const firebaseConfig = {
-            apiKey: "", // Left empty for dynamic environment insertion
+            apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", 
             authDomain: "onen-studio.firebaseapp.com",
             databaseURL: "https://onen-studio-default-rtdb.firebaseio.com",
-            projectId: "onen-studio",
-            storageBucket: "onen-studio.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:12345:web:abcde"
+            projectId: "onen-studio"
         };
 
-        // Initialize Firebase
-        const app = firebaseApp.initializeApp(firebaseConfig);
-        const db = firebaseApp.database();
-        const auth = firebaseApp.auth();
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
 
-        // --- AUTHENTICATION (The "Make it Live" fix) ---
-        // This logs the user in anonymously so the database rules work securely
         function initSession() {
             auth.signInAnonymously()
                 .then(() => {
                     const statusEl = document.getElementById('connection-status');
-                    statusEl.innerHTML = `<div class="w-2 h-2 rounded-full bg-green-500"></div> Connected Live`;
+                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> System Live`;
+                    statusEl.classList.replace('text-white/40', 'text-green-500/80');
                     startApp();
                 })
-                .catch((error) => {
-                    console.error("Auth failed:", error);
-                    document.getElementById('connection-status').innerHTML = `<div class="w-2 h-2 rounded-full bg-red-500"></div> Error`;
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('connection-status').innerHTML = `Offline`;
                 });
         }
 
         function startApp() {
             const form = document.getElementById('shipment-form');
             const list = document.getElementById('shipment-list');
-            const statTransit = document.getElementById('stat-transit');
-            const statDelivered = document.getElementById('stat-delivered');
 
-            // Handle Submission
             form.addEventListener('submit', (e) => {
                 e.preventDefault();
-                
-                const newShipment = {
-                    origin: document.getElementById('origin').value,
-                    destination: document.getElementById('destination').value,
+                const data = {
+                    origin: document.getElementById('origin').value.toUpperCase(),
+                    destination: document.getElementById('destination').value.toUpperCase(),
                     weight: document.getElementById('weight').value,
                     priority: document.getElementById('priority').value,
                     status: 'In Transit',
-                    timestamp: firebaseApp.database.ServerValue.TIMESTAMP
+                    timestamp: firebase.database.ServerValue.TIMESTAMP
                 };
-
-                db.ref('shipments').push(newShipment);
+                db.ref('shipments').push(data);
                 form.reset();
             });
 
-            // Sync Data
-            db.ref('shipments').on('value', (snapshot) => {
-                const data = snapshot.val();
+            db.ref('shipments').on('value', (snap) => {
+                const data = snap.val();
                 list.innerHTML = '';
-                let transitCount = 0;
-                let deliveredCount = 0;
+                let t = 0, d = 0;
 
                 if (!data) {
-                    list.innerHTML = '<div class="text-center py-10 text-gray-600 italic">No shipments found in manifest.</div>';
+                    list.innerHTML = '<div class="h-64 flex items-center justify-center text-[10px] font-black uppercase opacity-10 tracking-[0.5em]">No Active Manifests</div>';
                     return;
                 }
 
-                // Convert object to array and sort by timestamp
-                const items = Object.entries(data).reverse();
-
-                items.forEach(([id, item]) => {
-                    if (item.status === 'In Transit') transitCount++;
-                    else deliveredCount++;
-
+                Object.entries(data).reverse().forEach(([id, item]) => {
+                    item.status === 'In Transit' ? t++ : d++;
+                    
                     const card = document.createElement('div');
-                    card.className = 'glass p-5 rounded-xl accent-border flex justify-between items-center group transition-all hover:bg-white/5';
+                    card.className = 'glass p-6 rounded-3xl flex justify-between items-center group hover:bg-white/[0.06] transition-all cursor-default';
                     card.innerHTML = `
-                        <div class="space-y-1">
-                            <div class="flex items-center gap-2">
-                                <span class="text-xs font-bold text-blue-400 uppercase tracking-tighter">${id.substring(1, 8)}</span>
-                                <span class="text-[10px] px-2 py-0.5 rounded ${item.priority === 'Critical' ? 'bg-red-500/20 text-red-400' : 'bg-gray-800 text-gray-400'}">
-                                    ${item.priority}
-                                </span>
+                        <div class="flex gap-6 items-center">
+                            <div class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center">
+                                <i class="fa-solid fa-box text-white/20 group-hover:text-amber-500 transition-colors"></i>
                             </div>
-                            <div class="text-sm font-medium text-white flex items-center gap-2">
-                                ${item.origin} 
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                                </svg> 
-                                ${item.destination}
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="text-[10px] font-black text-amber-500 italic">#${id.slice(-6).toUpperCase()}</span>
+                                    <span class="text-[8px] font-extrabold uppercase bg-white/10 px-2 py-0.5 rounded-full text-white/40">${item.priority}</span>
+                                </div>
+                                <div class="text-sm font-bold tracking-tight flex items-center gap-3">
+                                    ${item.origin} 
+                                    <i class="fa-solid fa-arrow-right text-[10px] opacity-20"></i>
+                                    ${item.destination}
+                                </div>
+                                <div class="text-[9px] font-medium opacity-30 mt-1 uppercase tracking-widest">${item.weight} KG • ${new Date(item.timestamp).toLocaleTimeString()}</div>
                             </div>
-                            <div class="text-[10px] text-gray-500">${item.weight} kg • ${new Date(item.timestamp).toLocaleString()}</div>
                         </div>
-                        <div class="flex flex-col items-end gap-2">
-                            <span class="text-xs ${item.status === 'Delivered' ? 'text-green-500' : 'text-blue-500'} font-semibold">
+                        <div class="text-right flex flex-col items-end gap-3">
+                            <span class="text-[10px] font-black uppercase tracking-tighter ${item.status === 'Delivered' ? 'text-green-500' : 'text-amber-500'}">
                                 ${item.status}
                             </span>
-                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="flex gap-2 opacity-0 group-hover:opacity-100 transition-all transform translate-x-2 group-hover:translate-x-0">
                                 ${item.status === 'In Transit' ? 
-                                    `<button onclick="updateStatus('${id}', 'Delivered')" class="text-[10px] bg-green-600/20 text-green-500 px-2 py-1 rounded hover:bg-green-600 hover:text-white transition-colors">Deliver</button>` : 
-                                    `<button onclick="deleteShipment('${id}')" class="text-[10px] bg-red-600/20 text-red-500 px-2 py-1 rounded hover:bg-red-600 hover:text-white transition-colors">Archive</button>`
+                                    `<button onclick="updateStatus('${id}', 'Delivered')" class="text-[9px] font-black uppercase bg-white text-black px-4 py-2 rounded-xl hover:bg-amber-500 transition-colors">Deliver</button>` : 
+                                    `<button onclick="deleteShipment('${id}')" class="text-[9px] font-black uppercase bg-red-500/10 text-red-500 px-4 py-2 rounded-xl hover:bg-red-500 hover:text-white transition-colors">Archive</button>`
                                 }
                             </div>
                         </div>
@@ -212,25 +250,15 @@
                     list.appendChild(card);
                 });
 
-                statTransit.innerText = transitCount;
-                statDelivered.innerText = deliveredCount;
+                document.getElementById('stat-transit').innerText = t;
+                document.getElementById('stat-delivered').innerText = d;
             });
         }
 
-        // Action Handlers
-        window.updateStatus = (id, newStatus) => {
-            db.ref(`shipments/${id}`).update({ status: newStatus });
-        };
+        window.updateStatus = (id, s) => db.ref(`shipments/${id}`).update({ status: s });
+        window.deleteShipment = (id) => db.ref(`shipments/${id}`).remove();
 
-        window.deleteShipment = (id) => {
-            if(confirm('Archive this shipment from the live manifest?')) {
-                db.ref(`shipments/${id}`).remove();
-            }
-        };
-
-        // Start Auth Flow
         window.onload = initSession;
-
     </script>
 </body>
 </html>
