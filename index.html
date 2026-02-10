@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | Stock & Memo Engine</title>
+    <title>ONEN STUDIO | Memo Engine</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Using Compat version for simplicity in a single-file environment -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -30,126 +29,134 @@
 
         .glass { 
             background: rgba(255, 255, 255, 0.02); 
-            backdrop-filter: blur(20px) saturate(180%);
-            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            backdrop-filter: blur(24px) saturate(180%);
+            -webkit-backdrop-filter: blur(24px) saturate(180%);
             border: 1px solid rgba(255, 255, 255, 0.05); 
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
         }
 
         .input-glass {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 12px;
+            border-radius: 16px;
             transition: all 0.3s var(--smooth);
         }
 
         .input-glass:focus {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.06);
             border-color: var(--accent);
             outline: none;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
         }
 
-        .btn-action {
-            transition: all 0.3s var(--smooth);
-        }
-        .btn-action:hover { transform: scale(1.05); }
-        .btn-action:active { transform: scale(0.95); }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+        .memo-workspace {
+            min-height: 400px;
+            font-size: 1.1rem;
+            line-height: 1.6;
         }
 
-        .animate-fade { animation: fadeIn 0.6s var(--smooth) forwards; }
+        @keyframes pulse-slow {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        .status-dot { animation: pulse-slow 2s infinite; }
         
-        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
 <body class="min-h-screen">
 
     <!-- Header -->
-    <header class="max-w-[1400px] mx-auto p-6 md:p-10 flex justify-between items-center animate-fade">
+    <header class="max-w-[1600px] mx-auto p-6 md:p-12 flex justify-between items-end">
         <div>
-            <h1 class="text-3xl font-black tracking-tighter italic text-white leading-none">ONEN STUDIO <span class="text-amber-500">STOCK</span></h1>
-            <p class="text-white/20 text-[9px] uppercase font-bold tracking-[0.5em] mt-2">Shared Cloud Infrastructure v3.1</p>
+            <h1 class="text-4xl font-black tracking-tighter italic text-white leading-none">ONEN <span class="text-amber-500">MEMO</span></h1>
+            <p class="text-white/20 text-[10px] uppercase font-bold tracking-[0.6em] mt-3">Intelligence Core & Stock Synchronization</p>
         </div>
-        <div id="connection-status" class="glass px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
-            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div> Initializing...
+        <div id="connection-status" class="glass px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest text-white/40 flex items-center gap-3">
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 status-dot"></div> Uplink Initializing
         </div>
     </header>
 
-    <main class="max-w-[1400px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
+    <main class="max-w-[1600px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-10 pb-24">
         
-        <!-- Sidebar: Controls & Stats -->
-        <section class="lg:col-span-4 space-y-6 animate-fade" style="animation-delay: 0.1s">
-            
-            <!-- Stock Add Form -->
-            <div class="glass p-7 rounded-[2rem]">
-                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-6 flex items-center gap-2">
-                    <i class="fa-solid fa-box-archive"></i> New Inventory Item
-                </h2>
-                <form id="stock-form" class="space-y-4">
-                    <input type="text" id="itemName" required class="input-glass w-full p-4 text-sm font-semibold" placeholder="Item Name (e.g. GPU RTX 4090)">
-                    <div class="grid grid-cols-2 gap-3">
-                        <input type="number" id="itemQty" required class="input-glass w-full p-4 text-sm" placeholder="Initial Qty">
-                        <input type="text" id="itemCategory" class="input-glass w-full p-4 text-sm" placeholder="Category">
-                    </div>
-                    <button type="submit" class="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-colors">
-                        Register Stock
+        <!-- Primary Workspace: Memo Generator -->
+        <section class="lg:col-span-8 space-y-6">
+            <div class="glass p-10 rounded-[3rem] relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-amber-500/50 to-transparent"></div>
+                
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-xs font-black uppercase tracking-[0.3em] text-white/30">Active Intelligence Workspace</h2>
+                    <div id="char-count" class="text-[10px] font-bold text-amber-500/50 uppercase tracking-widest">0 Characters</div>
+                </div>
+
+                <textarea id="memo-input" 
+                    class="input-glass w-full p-8 memo-workspace placeholder:text-white/10" 
+                    placeholder="Commence data entry... Enter shared instructions, project logs, or system status updates."></textarea>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+                    <button onclick="applyTemplate('LOG')" class="glass py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40 hover:text-white">
+                        <i class="fa-solid fa-terminal mr-2"></i> System Log
                     </button>
-                </form>
-            </div>
+                    <button onclick="applyTemplate('TASK')" class="glass py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40 hover:text-white">
+                        <i class="fa-solid fa-list-check mr-2"></i> Task List
+                    </button>
+                    <button onclick="applyTemplate('ALERT')" class="glass py-4 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/5 transition-all text-white/40 hover:text-white">
+                        <i class="fa-solid fa-triangle-exclamation mr-2"></i> Priority Alert
+                    </button>
+                </div>
 
-            <!-- Memo System -->
-            <div class="glass p-7 rounded-[2rem]">
-                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
-                    <i class="fa-solid fa-note-sticky"></i> Shared Memo Pad
-                </h2>
-                <textarea id="memo-input" class="input-glass w-full p-4 text-sm h-32 resize-none mb-3" placeholder="Drop a note for the team..."></textarea>
-                <button id="save-memo" class="w-full border border-white/10 text-white font-bold py-3 rounded-xl text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all">
-                    Update Memo
+                <button id="save-memo" class="mt-6 w-full bg-amber-500 text-black font-black py-6 rounded-2xl text-xs uppercase tracking-[0.4em] hover:bg-white hover:scale-[1.01] active:scale-[0.99] transition-all shadow-2xl shadow-amber-500/20">
+                    Broadcast to Cloud
                 </button>
-                <div id="memo-display" class="mt-4 p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 hidden">
-                    <p id="memo-text" class="text-xs text-white/70 leading-relaxed italic"></p>
-                </div>
             </div>
 
-            <!-- Global Metrics -->
-            <div class="grid grid-cols-2 gap-4">
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Total SKU</p>
-                    <p id="stat-sku" class="text-3xl font-black italic">0</p>
-                </div>
-                <div class="glass p-6 rounded-3xl">
-                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Stock Items</p>
-                    <p id="stat-items" class="text-3xl font-black italic text-amber-500">0</p>
-                </div>
+            <!-- Global Output Log -->
+            <div id="memo-history" class="glass p-8 rounded-[2.5rem] min-h-[150px]">
+                 <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 mb-6">Cloud Output Stream</h3>
+                 <div id="memo-display-content" class="text-lg font-medium text-white/80 whitespace-pre-wrap leading-relaxed italic">
+                    Waiting for data broadcast...
+                 </div>
             </div>
         </section>
 
-        <!-- Inventory List -->
-        <section class="lg:col-span-8 animate-fade" style="animation-delay: 0.2s">
-            <div class="glass p-8 rounded-[2.5rem] min-h-[700px]">
-                <div class="flex justify-between items-center mb-10">
-                    <h2 class="text-xs font-black uppercase tracking-widest flex items-center gap-3">
-                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Live Inventory
-                    </h2>
-                    <div class="flex gap-2">
-                         <input type="text" id="search" placeholder="Filter..." class="bg-transparent border-b border-white/10 text-[10px] uppercase font-bold px-2 py-1 focus:border-amber-500 outline-none">
+        <!-- Sidebar: Stock Monitor -->
+        <section class="lg:col-span-4 space-y-6">
+            
+            <!-- Quick Add Stock -->
+            <div class="glass p-8 rounded-[2.5rem]">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-6">Stock Sync</h2>
+                <form id="stock-form" class="space-y-3">
+                    <input type="text" id="itemName" required class="input-glass w-full p-4 text-xs font-bold" placeholder="Item Identifer">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" id="itemQty" required class="input-glass w-full p-4 text-xs" placeholder="Qty">
+                        <button type="submit" class="bg-white text-black rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-colors">Add</button>
                     </div>
+                </form>
+            </div>
+
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-[2rem]">
+                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Items</p>
+                    <p id="stat-sku" class="text-3xl font-black italic">0</p>
                 </div>
-                
-                <div id="stock-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Dynamic Items -->
+                <div class="glass p-6 rounded-[2rem]">
+                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Total Unit</p>
+                    <p id="stat-items" class="text-3xl font-black italic text-amber-500">0</p>
                 </div>
+            </div>
+
+            <!-- Stock List Mini -->
+            <div id="stock-list" class="space-y-3 max-h-[500px] overflow-y-auto pr-2">
+                <!-- Stock Cards -->
             </div>
         </section>
 
     </main>
 
     <script>
-        // REPLACE with your actual config from Firebase Console
+        // CONFIG
         const firebaseConfig = {
             apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", 
             authDomain: "onen-studio.firebaseapp.com",
@@ -161,17 +168,24 @@
         const db = firebase.database();
         const auth = firebase.auth();
 
+        // TEMPLATES
+        const templates = {
+            LOG: `[SYSTEM LOG - ${new Date().toLocaleDateString()}]\n--------------------------\nSTATUS: Nominal\nEVENT: \nOBSERVATION: `,
+            TASK: `[ACTIVE OBJECTIVES]\n- [ ] \n- [ ] \n- [ ] `,
+            ALERT: `!!! PRIORITY ALERT !!!\nURGENCY: High\nMESSAGE: `
+        };
+
         function initApp() {
             auth.signInAnonymously()
                 .then(() => {
                     const statusEl = document.getElementById('connection-status');
-                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> System Live`;
+                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> System Synchronized`;
                     statusEl.classList.replace('text-white/40', 'text-green-500/80');
                     setupListeners();
                 })
                 .catch(err => {
                     console.error(err);
-                    document.getElementById('connection-status').innerHTML = `Auth Error`;
+                    document.getElementById('connection-status').innerHTML = `Auth Failure`;
                 });
         }
 
@@ -180,90 +194,85 @@
             const stockList = document.getElementById('stock-list');
             const memoInput = document.getElementById('memo-input');
             const saveMemoBtn = document.getElementById('save-memo');
-            const memoDisplay = document.getElementById('memo-display');
-            const memoText = document.getElementById('memo-text');
+            const memoText = document.getElementById('memo-display-content');
+            const charCount = document.getElementById('char-count');
 
-            // 1. Stock Creation
+            // Character Counter
+            memoInput.addEventListener('input', () => {
+                charCount.innerText = `${memoInput.value.length} Characters`;
+            });
+
+            // Stock Logic
             stockForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const data = {
                     name: document.getElementById('itemName').value,
                     qty: parseInt(document.getElementById('itemQty').value),
-                    category: document.getElementById('itemCategory').value || 'General',
                     updatedAt: firebase.database.ServerValue.TIMESTAMP
                 };
                 db.ref('inventory').push(data);
                 stockForm.reset();
             });
 
-            // 2. Real-time Inventory Updates
             db.ref('inventory').on('value', (snap) => {
                 const data = snap.val();
                 stockList.innerHTML = '';
                 let totalQty = 0;
                 let skuCount = 0;
 
-                if (!data) {
-                    stockList.innerHTML = '<div class="col-span-full h-64 flex items-center justify-center text-[10px] font-black uppercase opacity-10 tracking-[0.5em]">Inventory Empty</div>';
-                    return;
-                }
-
-                Object.entries(data).reverse().forEach(([id, item]) => {
-                    totalQty += item.qty;
-                    skuCount++;
-
-                    const card = document.createElement('div');
-                    card.className = 'glass p-6 rounded-3xl flex flex-col justify-between hover:bg-white/[0.04] transition-all border-l-2 border-amber-500/0 hover:border-amber-500/50';
-                    card.innerHTML = `
-                        <div class="flex justify-between items-start mb-4">
+                if (data) {
+                    Object.entries(data).reverse().forEach(([id, item]) => {
+                        totalQty += item.qty;
+                        skuCount++;
+                        const card = document.createElement('div');
+                        card.className = 'glass p-5 rounded-2xl flex justify-between items-center hover:bg-white/[0.04] transition-all';
+                        card.innerHTML = `
                             <div>
-                                <p class="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">${item.category}</p>
-                                <h3 class="text-sm font-bold text-white tracking-tight">${item.name}</h3>
+                                <h3 class="text-[11px] font-bold text-white uppercase tracking-tight">${item.name}</h3>
+                                <p class="text-[8px] text-white/20 mt-1 font-bold">L-UNIT: ${id.slice(-4)}</p>
                             </div>
-                            <button onclick="deleteItem('${id}')" class="text-white/10 hover:text-red-500 transition-colors">
-                                <i class="fa-solid fa-xmark text-xs"></i>
-                            </button>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center gap-4">
-                                <button onclick="updateQty('${id}', -1)" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 btn-action text-xs">-</button>
-                                <span class="text-2xl font-black italic w-8 text-center">${item.qty}</span>
-                                <button onclick="updateQty('${id}', 1)" class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center hover:bg-amber-600 btn-action text-black text-xs">+</button>
+                            <div class="flex items-center gap-3">
+                                <button onclick="updateQty('${id}', -1)" class="w-6 h-6 rounded-md bg-white/5 flex items-center justify-center text-[10px]">-</button>
+                                <span class="text-sm font-black italic w-4 text-center">${item.qty}</span>
+                                <button onclick="updateQty('${id}', 1)" class="w-6 h-6 rounded-md bg-amber-500 flex items-center justify-center text-black text-[10px]">+</button>
                             </div>
-                            <span class="text-[8px] font-bold opacity-20 uppercase">ID: ${id.slice(-4)}</span>
-                        </div>
-                    `;
-                    stockList.appendChild(card);
-                });
-
+                        `;
+                        stockList.appendChild(card);
+                    });
+                }
                 document.getElementById('stat-sku').innerText = skuCount;
                 document.getElementById('stat-items').innerText = totalQty;
             });
 
-            // 3. Memo System
+            // Memo Logic
             saveMemoBtn.addEventListener('click', () => {
                 const val = memoInput.value.trim();
-                if(val) db.ref('sharedMemo').set({ text: val, timestamp: firebase.database.ServerValue.TIMESTAMP });
+                if(val) {
+                    db.ref('sharedMemo').set({ 
+                        text: val, 
+                        timestamp: firebase.database.ServerValue.TIMESTAMP 
+                    });
+                    saveMemoBtn.innerText = "BROADCAST COMPLETE";
+                    setTimeout(() => saveMemoBtn.innerText = "Broadcast to Cloud", 2000);
+                }
             });
 
             db.ref('sharedMemo').on('value', (snap) => {
                 const data = snap.val();
                 if (data && data.text) {
-                    memoDisplay.classList.remove('hidden');
                     memoText.innerText = data.text;
-                    memoInput.value = data.text;
+                    if (memoInput.value === "") memoInput.value = data.text;
                 }
             });
         }
 
-        // Global functions for inline events
-        window.updateQty = (id, delta) => {
-            const ref = db.ref(`inventory/${id}/qty`);
-            ref.transaction(current => (current || 0) + delta);
+        window.applyTemplate = (type) => {
+            document.getElementById('memo-input').value = templates[type];
+            document.getElementById('char-count').innerText = `${templates[type].length} Characters`;
         };
 
-        window.deleteItem = (id) => {
-            if(confirm('Archive this item?')) db.ref(`inventory/${id}`).remove();
+        window.updateQty = (id, delta) => {
+            db.ref(`inventory/${id}/qty`).transaction(c => (c || 0) + delta);
         };
 
         window.onload = initApp;
