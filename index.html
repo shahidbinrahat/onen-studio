@@ -352,6 +352,25 @@ service cloud.firestore {
         import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         /**
+         * ==================================================================
+         * QUICK INVENTORY CONFIGURATION
+         * ==================================================================
+         * To add products, simply add an object to the list below.
+         */
+        const PRODUCT_INVENTORY = [
+            { id: 1, name: "Onyx Basic Tee", price: 1250, variants: ["Black/M", "Black/L", "Black/XL"] },
+            { id: 2, name: "Ghost Cargo Pants", price: 2850, variants: ["Grey/30", "Grey/32", "Grey/34"] },
+            { id: 3, name: "Neon Studio Hoodie", price: 3400, variants: ["Purple/L", "Purple/XL"] },
+            { id: 4, name: "Gravity Oversized", price: 1650, variants: ["Cream/M", "Cream/L"] },
+            { id: 5, name: "Studio Tote Bag", price: 650, variants: ["Black/OneSize"] },
+            { id: 6, name: "Cyber Socks", price: 350, variants: ["White", "Black"] },
+            { id: 7, name: "Acid Wash Denim", price: 3200, variants: ["Blue/30", "Blue/32", "Blue/34"] },
+            { id: 8, name: "Signature Cap", price: 950, variants: ["Forest Green", "Midnight Black"] },
+            // Example: To add a new product, just uncomment/copy the line below:
+            // { id: 9, name: "New Arrival Tee", price: 1500, variants: ["White/S", "White/M"] }
+        ];
+
+        /**
          * FIREBASE CONFIGURATION
          */
         const firebaseConfig = {
@@ -368,25 +387,6 @@ service cloud.firestore {
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
-
-        /**
-         * ------------------------------------------------------------------
-         * PRODUCT INVENTORY SETUP
-         * ------------------------------------------------------------------
-         * Edit this list to update your "Add Product" picker.
-         * Format: { id: UniqueID, name: "Title", price: Amount, variants: ["v1", "v2"] }
-         */
-        const Inventory = [
-            { id: 1, name: "Onyx Basic Tee", price: 1250, variants: ["Black/M", "Black/L", "Black/XL"] },
-            { id: 2, name: "Ghost Cargo Pants", price: 2850, variants: ["Grey/30", "Grey/32", "Grey/34"] },
-            { id: 3, name: "Neon Studio Hoodie", price: 3400, variants: ["Purple/L", "Purple/XL"] },
-            { id: 4, name: "Gravity Oversized", price: 1650, variants: ["Cream/M", "Cream/L"] },
-            { id: 5, name: "Studio Tote Bag", price: 650, variants: ["Black/OneSize"] },
-            { id: 6, name: "Cyber Socks", price: 350, variants: ["White", "Black"] },
-            { id: 7, name: "Acid Wash Denim", price: 3200, variants: ["Blue/30", "Blue/32", "Blue/34"] },
-            { id: 8, name: "Signature Cap", price: 950, variants: ["Forest Green", "Midnight Black"] }
-        ];
-        /** ----------------------------------------------------------------- */
 
         let currentUser = null;
         let memos = [];
@@ -596,7 +596,7 @@ service cloud.firestore {
                 const modal = document.getElementById('picker-modal');
                 const grid = document.getElementById('picker-grid');
                 modal.classList.replace('hidden', 'flex');
-                grid.innerHTML = Inventory.map(item => `
+                grid.innerHTML = PRODUCT_INVENTORY.map(item => `
                     <div class="glass p-8 flex flex-col gap-4 border-white/5 hover:border-amber-500/30">
                         <div class="flex justify-between items-start">
                             <div><h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4><span class="text-amber-500 font-bold text-xs">৳${item.price.toLocaleString()}</span></div>
