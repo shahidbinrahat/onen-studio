@@ -93,7 +93,13 @@
 
         #sync-indicator.online { color: #10b981; }
         #sync-indicator.offline { color: #ef4444; }
-        #sync-indicator.syncing { color: #f59e0b; }
+        #sync-indicator.syncing { color: #f59e0b; animation: pulse 2s infinite; }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
 
         @media print { 
             .no-print { display: none !important; } 
@@ -109,17 +115,35 @@
                 border: none;
             } 
         }
+
+        #debug-console {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.9);
+            color: #0f0;
+            font-family: monospace;
+            font-size: 8px;
+            padding: 10px;
+            border-radius: 5px;
+            z-index: 9999;
+            max-width: 200px;
+            pointer-events: none;
+            display: none;
+        }
     </style>
 </head>
 <body>
+
+    <div id="debug-console"></div>
 
     <div class="flex h-screen overflow-hidden no-print">
         <!-- Sidebar -->
         <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-8 custom-scroll overflow-y-auto">
             <div class="flex justify-between items-start">
                 <div class="text-amber-500 font-black italic text-3xl tracking-tighter">ONEN STUDIO.</div>
-                <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold syncing mt-2 cursor-pointer" title="Click to force reconnect">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Syncing...</span>
+                <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold syncing mt-2 cursor-pointer">
+                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Initializing...</span>
                 </div>
             </div>
             
@@ -178,7 +202,13 @@
 
         <!-- Main Content Area -->
         <main class="flex-grow bg-[#0a0a0a] overflow-y-auto p-12 relative no-scrollbar">
-            <div id="workspace" class="max-w-4xl mx-auto pb-48"></div>
+            <div id="workspace" class="max-w-4xl mx-auto pb-48">
+                <!-- Loading State UI -->
+                <div id="initial-loader" class="flex flex-col items-center justify-center h-[60vh] text-white/20">
+                    <div class="w-12 h-12 border-2 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-4"></div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.5em]">Establishing Sync Connection</p>
+                </div>
+            </div>
 
             <!-- Contextual Controls -->
             <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/5 backdrop-blur-3xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl z-50">
@@ -195,7 +225,7 @@
         </main>
     </div>
 
-    <!-- Product Picker Modal -->
+    <!-- Modals (Picker & Inventory) remain same structure -->
     <div id="picker-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden items-center justify-center z-[100] p-10 no-print">
         <div class="bg-[#111] border border-white/10 p-12 rounded-[2rem] w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
             <div class="flex justify-between items-center mb-10">
@@ -214,7 +244,6 @@
         </div>
     </div>
 
-    <!-- Inventory Management Modal -->
     <div id="inventory-modal" class="fixed inset-0 bg-black/98 backdrop-blur-2xl hidden items-center justify-center z-[120] p-10 no-print">
         <div class="bg-[#050505] border border-white/10 p-12 rounded-[2rem] w-full max-w-5xl h-[85vh] flex flex-col">
             <div class="flex justify-between items-start mb-12">
@@ -224,37 +253,17 @@
                 </div>
                 <button id="btn-close-inventory" class="text-white opacity-20 hover:opacity-100 text-5xl">&times;</button>
             </div>
-
             <div class="grid grid-cols-4 gap-8 mb-8">
-                <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Title</label>
-                    <input id="inv-name" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Product Name">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Price (৳)</label>
-                    <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Price">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Sizes (S, M...)</label>
-                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="S, M, L">
-                </div>
-                <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Colors (Black, Red...)</label>
-                    <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Black, Grey">
-                </div>
-                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all disabled:opacity-50">Save to Catalog</button>
+                <input id="inv-name" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Product Name">
+                <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Price">
+                <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Sizes (e.g. S, M, L)">
+                <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Colors (e.g. Black, White)">
+                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all">Save to Catalog</button>
             </div>
-
             <div class="flex-grow overflow-y-auto custom-scroll pr-4">
                 <table class="w-full text-left text-[11px]">
                     <thead class="border-b border-white/10 uppercase font-black opacity-30">
-                        <tr>
-                            <th class="pb-4">Product</th>
-                            <th class="pb-4">Price</th>
-                            <th class="pb-4">Sizes</th>
-                            <th class="pb-4">Colors</th>
-                            <th class="pb-4 text-right">Actions</th>
-                        </tr>
+                        <tr><th class="pb-4">Product</th><th class="pb-4">Price</th><th class="pb-4">Sizes</th><th class="pb-4">Colors</th><th class="pb-4 text-right">Actions</th></tr>
                     </thead>
                     <tbody id="inv-table-body" class="font-bold"></tbody>
                 </table>
@@ -278,7 +287,6 @@
                     <div class="text-[9px] font-black opacity-40 m-date uppercase tracking-widest mt-1"></div>
                 </div>
             </div>
-
             <div class="grid grid-cols-2 gap-12 mb-6">
                 <div class="space-y-2">
                     <input class="m-name w-full border-none font-black text-2xl p-0 focus:ring-0 uppercase bg-transparent text-black" placeholder="RECIPIENT NAME">
@@ -289,265 +297,155 @@
                     <span class="m-tag border-[3px] border-black px-6 py-2 text-[11px] font-black italic tracking-widest inline-block uppercase">DHAKA</span>
                 </div>
             </div>
-
             <div class="flex-grow">
                 <table class="w-full text-[13px]">
                     <thead class="border-b-2 border-black font-black text-[9px] uppercase text-left">
                         <tr>
-                            <th class="pb-3 w-8">#</th>
-                            <th class="pb-3">DESCRIPTION</th>
-                            <th class="pb-3 text-center">SIZE</th>
-                            <th class="pb-3 text-center">COLOR</th>
-                            <th class="pb-3 text-center w-12">QTY</th>
-                            <th class="pb-3 text-right w-24">PRICE</th>
-                            <th class="pb-3 w-8 no-print"></th>
+                            <th class="pb-3 w-8">#</th><th class="pb-3">DESCRIPTION</th><th class="pb-3 text-center">SIZE</th><th class="pb-3 text-center">COLOR</th><th class="pb-3 text-center w-12">QTY</th><th class="pb-3 text-right w-24">PRICE</th><th class="pb-3 w-8 no-print"></th>
                         </tr>
                     </thead>
                     <tbody class="m-rows font-bold"></tbody>
                 </table>
             </div>
-
             <div class="mt-6 pt-4 border-t border-black/5">
-                <label class="text-[8px] font-black uppercase opacity-40 tracking-widest mb-1 block">Special Instructions</label>
-                <textarea class="m-instructions w-full border-none text-[10px] p-0 focus:ring-0 resize-none font-bold bg-transparent h-10 text-black" placeholder="E.g. Call before delivery..."></textarea>
+                <textarea class="m-instructions w-full border-none text-[10px] p-0 focus:ring-0 resize-none font-bold bg-transparent h-10 text-black" placeholder="SPECIAL INSTRUCTIONS..."></textarea>
             </div>
-
             <div class="mt-4 border-t-2 border-black pt-6 flex justify-between items-end">
                 <div class="text-[8px] font-bold opacity-40 leading-relaxed uppercase">
-                    <p>7-Day Exchange window valid from delivery date</p>
-                    <p>Items must be in original condition with all tags intact</p>
-                    <p class="mt-2 text-black opacity-100 uppercase">OneN Studio | Warehouse: Dhaka, Bangladesh</p>
+                    <p>7-Day Exchange window | OneN Studio | Dhaka, Bangladesh</p>
                 </div>
                 <div class="text-right w-64">
-                    <div class="flex justify-between text-[11px] font-bold mb-2">
-                        <span class="opacity-40 uppercase">Delivery Charge</span>
-                        <span class="m-ship-val tracking-tight">0</span>
-                    </div>
+                    <div class="flex justify-between text-[11px] font-bold mb-2"><span class="opacity-40 uppercase">Delivery Charge</span><span class="m-ship-val">0</span></div>
                     <div class="flex justify-between border-t-[3px] border-black pt-3 font-black">
                         <span class="text-[12px] mt-2 uppercase italic">Grand Total</span>
-                        <div class="flex items-start">
-                            <span class="text-xl mt-1 mr-1">৳</span>
-                            <span class="text-5xl m-total tracking-tighter leading-none">0</span>
-                        </div>
+                        <div class="flex items-start"><span class="text-xl mt-1 mr-1">৳</span><span class="text-5xl m-total tracking-tighter">0</span></div>
                     </div>
                 </div>
             </div>
-            
-            <button class="m-delete-btn no-print absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"><i class="fa-solid fa-trash-can"></i></button>
+            <button class="m-delete-btn no-print absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-solid fa-trash-can"></i></button>
         </div>
     </template>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIGURATION
+        // GLOBAL CONFIG
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-logistics-v2';
+        const appId = typeof __app_id !== 'undefined' && __app_id ? __app_id : 'onen-studio-global';
 
         let memos = [];
         let inventory = [];
         let activeDocId = null;
         let currentUser = null;
-        let unsubMemos = null;
-        let unsubInv = null;
+
+        const Logger = {
+            log: (msg) => {
+                const el = document.getElementById('debug-console');
+                el.innerHTML += `<div>> ${msg}</div>`;
+                el.scrollTop = el.scrollHeight;
+                console.log("[Engine]", msg);
+            }
+        };
 
         const Engine = {
             async init() {
-                this.updateSyncStatus('syncing', 'Authenticating...');
-                
-                // Track Auth State
-                onAuthStateChanged(auth, (user) => {
+                Logger.log(`Starting Engine (ID: ${appId})`);
+                this.updateUIStatus('syncing', 'Connecting Auth...');
+
+                onAuthStateChanged(auth, async (user) => {
                     if (user) {
-                        console.log("Auth Success:", user.uid);
+                        Logger.log(`Auth Verified: ${user.uid}`);
                         currentUser = user;
-                        this.updateSyncStatus('online', 'Live');
-                        this.setupListeners();
+                        this.updateUIStatus('online', 'Live');
+                        this.startSync();
                     } else {
-                        console.log("Auth Missing. Retrying...");
-                        this.updateSyncStatus('syncing', 'Retrying Auth...');
-                        this.attemptSignIn();
+                        Logger.log("No User Session. Triggering Sign-In...");
+                        await this.doAuth();
                     }
                 });
 
-                this.attemptSignIn();
-                this.bindEvents();
-                
-                // Manual reconnect click
-                document.getElementById('sync-indicator').onclick = () => this.attemptSignIn();
+                // Fallback timeout
+                setTimeout(() => {
+                    if (!currentUser) {
+                        Logger.log("Auth timeout. Force Retrying...");
+                        this.doAuth();
+                    }
+                }, 3000);
+
+                this.bindGlobalEvents();
             },
 
-            async attemptSignIn() {
+            async doAuth() {
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        Logger.log("Attempting Custom Token Auth...");
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
+                        Logger.log("Attempting Anonymous Auth...");
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    console.error("Manual Auth Error:", e);
-                    this.updateSyncStatus('offline', 'Auth Failed');
+                    Logger.log(`Auth Error: ${e.message}`);
+                    this.updateUIStatus('offline', 'Auth Failed');
                 }
             },
 
-            updateSyncStatus(status, label) {
+            updateUIStatus(status, label) {
                 const el = document.getElementById('sync-indicator');
                 if(!el) return;
                 el.className = `text-[10px] flex items-center gap-1.5 font-bold mt-2 cursor-pointer ${status}`;
                 el.querySelector('span').innerText = label;
             },
 
-            setupListeners() {
-                if(!currentUser) return;
-
-                // Cleanup previous if any
-                if(unsubMemos) unsubMemos();
-                if(unsubInv) unsubInv();
-
-                this.updateSyncStatus('syncing', 'Fetching Data...');
+            startSync() {
+                if (!currentUser) return;
+                Logger.log("Attaching Firestore Listeners...");
 
                 // Rule 1: /artifacts/{appId}/public/data/{collection}
                 const memoRef = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 const invRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
 
-                unsubMemos = onSnapshot(memoRef, 
-                    (snap) => {
-                        const data = [];
-                        snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
-                        memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                        if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
-                        this.renderMemos();
-                        this.updateSyncStatus('online', 'Live');
-                    },
-                    (err) => {
-                        console.error("Memo Sync Error:", err);
-                        this.updateSyncStatus('offline', 'Sync Error');
-                    }
-                );
-
-                unsubInv = onSnapshot(invRef, 
-                    (snap) => {
-                        inventory = [];
-                        snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
-                        this.renderInventoryTable();
-                    },
-                    (err) => console.error("Inv Sync Error:", err)
-                );
-            },
-
-            bindEvents() {
-                document.getElementById('btn-new-memo').onclick = () => this.createNewMemo();
-                document.getElementById('btn-open-picker').onclick = () => this.openPicker();
-                document.getElementById('btn-close-picker').onclick = () => this.closePicker();
-                document.getElementById('btn-manage-inventory-cog').onclick = () => this.toggleInventoryModal(true);
-                document.getElementById('btn-close-inventory').onclick = () => this.toggleInventoryModal(false);
-                document.getElementById('btn-save-inv').onclick = () => this.saveInventoryItem();
-                document.getElementById('quick-parse').oninput = (e) => this.parseOrder(e.target.value);
-
-                document.querySelectorAll('[data-action]').forEach(btn => {
-                    btn.onclick = () => {
-                        if (!activeDocId) return;
-                        const action = btn.dataset.action;
-                        if (action === 'setLifecycle') this.updateMemo({ status: btn.dataset.state });
-                        if (action === 'setType') this.updateMemo({ type: btn.dataset.type });
-                        if (action === 'setShip') this.updateMemo({ ship: parseInt(btn.dataset.val), tag: btn.dataset.tag });
-                    };
+                onSnapshot(memoRef, (snap) => {
+                    Logger.log(`Memos Updated (${snap.size} docs)`);
+                    const data = [];
+                    snap.forEach(d => data.push({ ...d.data(), docId: d.id }));
+                    memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    
+                    if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
+                    this.renderMemos();
+                }, (err) => {
+                    Logger.log(`Memos Error: ${err.message}`);
+                    this.updateUIStatus('offline', 'Sync Lost');
                 });
 
-                document.getElementById('btn-export-steadfast').onclick = () => this.exportCSV('steadfast');
-                document.getElementById('btn-export-pathao').onclick = () => this.exportCSV('pathao');
-                document.getElementById('btn-export-carrybee').onclick = () => this.exportCSV('carrybee');
-            },
-
-            async saveInventoryItem() {
-                if(!currentUser) {
-                    this.attemptSignIn();
-                    return;
-                }
-                const btn = document.getElementById('btn-save-inv');
-                const nameEl = document.getElementById('inv-name');
-                const priceEl = document.getElementById('inv-price');
-                const name = nameEl.value.trim().toUpperCase();
-                const price = parseInt(priceEl.value);
-
-                if (!name || isNaN(price)) return;
-
-                btn.disabled = true;
-                btn.innerText = "WRITING...";
-
-                try {
-                    const itemId = Date.now().toString();
-                    const productDoc = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
-                    
-                    await setDoc(productDoc, {
-                        name,
-                        price,
-                        variants: document.getElementById('inv-vars').value.split(',').map(v => v.trim()).filter(v => v),
-                        colors: document.getElementById('inv-colors').value.split(',').map(v => v.trim()).filter(v => v),
-                        createdAt: Date.now(),
-                        owner: currentUser.uid
-                    });
-
-                    nameEl.value = ''; priceEl.value = '';
-                    btn.innerText = "SAVED";
-                    setTimeout(() => { btn.disabled = false; btn.innerText = "Save to Catalog"; }, 1000);
-                } catch (e) {
-                    console.error("Save Error:", e);
-                    btn.innerText = "ERROR - RETRYING";
-                    setTimeout(() => this.saveInventoryItem(), 1000);
-                }
-            },
-
-            renderInventoryTable() {
-                const tbody = document.getElementById('inv-table-body');
-                tbody.innerHTML = inventory.length ? inventory.map(item => `
-                    <tr class="border-b border-white/5 group">
-                        <td class="py-4 uppercase text-white">${item.name}</td>
-                        <td class="py-4 text-amber-500 font-black">৳${item.price.toLocaleString()}</td>
-                        <td class="py-4 opacity-50 text-[10px]">${(item.variants || []).join(', ') || '—'}</td>
-                        <td class="py-4 opacity-50 uppercase text-[10px]">${(item.colors || []).join(', ') || '—'}</td>
-                        <td class="py-4 text-right">
-                            <button onclick="window.deleteInvItem('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors p-2">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `).join('') : '<tr><td colspan="5" class="py-10 text-center opacity-20 uppercase font-black tracking-widest text-[10px]">Catalog is empty</td></tr>';
-                
-                window.deleteInvItem = async (id) => {
-                    if(confirm("Remove?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-                };
-            },
-
-            toggleInventoryModal(show) {
-                const modal = document.getElementById('inventory-modal');
-                modal.classList.toggle('hidden', !show);
-                modal.classList.toggle('flex', show);
-            },
-
-            async createNewMemo() {
-                if(!currentUser) return;
-                const docId = Date.now().toString();
-                const memo = {
-                    id: '#' + Math.floor(1000 + Math.random() * 9000),
-                    date: new Date().toLocaleDateString('en-GB'),
-                    name: '', phone: '', addr: '', instructions: '', ship: 60, tag: 'DHAKA',
-                    status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now(),
-                    owner: currentUser.uid
-                };
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
-                activeDocId = docId;
+                onSnapshot(invRef, (snap) => {
+                    Logger.log(`Inventory Updated (${snap.size} items)`);
+                    inventory = [];
+                    snap.forEach(d => inventory.push({ ...d.data(), id: d.id }));
+                    this.renderInventoryTable();
+                });
             },
 
             renderMemos() {
                 const workspace = document.getElementById('workspace');
                 const historyList = document.getElementById('history-list');
+                
+                // Hide initial loader once we have data or are connected
+                const loader = document.getElementById('initial-loader');
+                if (loader) loader.remove();
+
                 workspace.innerHTML = '';
                 historyList.innerHTML = '';
+
+                if (memos.length === 0) {
+                    workspace.innerHTML = `<div class="flex flex-col items-center justify-center h-[50vh] text-white/10 uppercase font-black tracking-widest text-[10px]">No orders found. Click "Create New Memo" to start.</div>`;
+                    return;
+                }
 
                 memos.forEach(m => {
                     const isActive = m.docId === activeDocId;
@@ -557,12 +455,12 @@
 
                     card.querySelector('.m-id').innerText = m.id;
                     card.querySelector('.m-date').innerText = m.date;
-                    card.querySelector('.m-tag').innerText = m.tag;
-                    card.querySelector('.m-ship-val').innerText = m.ship;
+                    card.querySelector('.m-tag').innerText = m.tag || 'DHAKA';
+                    card.querySelector('.m-ship-val').innerText = m.ship || 60;
 
                     const sTag = card.querySelector('.m-status-tag');
                     sTag.innerText = m.status;
-                    sTag.className = `m-status-tag font-black text-[9px] uppercase px-3 py-1 border-[2px] rounded-full st-${m.status.toLowerCase()}`;
+                    sTag.className = `m-status-tag font-black text-[9px] uppercase px-3 py-1 border-[2px] rounded-full st-${(m.status || 'PENDING').toLowerCase()}`;
 
                     const bind = (sel, key) => {
                         const el = card.querySelector(sel);
@@ -576,7 +474,7 @@
                     (m.items || []).forEach((item, idx) => {
                         subtotal += (item.price * item.qty);
                         const tr = document.createElement('tr');
-                        tr.className = "border-b border-black/5";
+                        tr.className = "border-b border-black/5 group";
                         tr.innerHTML = `
                             <td class="py-3 opacity-20">${idx+1}</td>
                             <td class="py-3 uppercase text-[11px]">${item.name}</td>
@@ -584,9 +482,9 @@
                             <td class="text-center text-[11px] uppercase">${item.color || '—'}</td>
                             <td class="text-center font-black">
                                 <div class="flex items-center justify-center gap-2 no-print">
-                                    <button class="q-dec opacity-30 hover:opacity-100 text-lg">×</button>
+                                    <button class="q-dec opacity-20 hover:opacity-100">×</button>
                                     <span>${item.qty}</span>
-                                    <button class="q-inc opacity-30 hover:opacity-100 text-lg">+</button>
+                                    <button class="q-inc opacity-20 hover:opacity-100">+</button>
                                 </div>
                                 <span class="hidden print:inline">${item.qty}</span>
                             </td>
@@ -599,14 +497,14 @@
                         rows.appendChild(tr);
                     });
 
-                    card.querySelector('.m-total').innerText = (subtotal + m.ship).toLocaleString();
-                    card.onclick = () => { activeDocId = m.docId; this.renderMemos(); };
+                    card.querySelector('.m-total').innerText = (subtotal + (m.ship || 60)).toLocaleString();
+                    card.onclick = () => { if(activeDocId !== m.docId) { activeDocId = m.docId; this.renderMemos(); } };
                     card.querySelector('.m-delete-btn').onclick = (e) => { e.stopPropagation(); this.deleteMemo(m.docId); };
                     workspace.appendChild(card);
 
                     const hist = document.createElement('div');
                     hist.className = `p-4 glass cursor-pointer transition-all ${isActive ? 'border-amber-500 bg-white/5 opacity-100' : 'opacity-40 hover:opacity-100'}`;
-                    hist.innerHTML = `<div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'NEW ORDER'}</div><div class="flex justify-between mt-1 opacity-60 text-[8px] font-black"><span>${m.id}</span><span>${(subtotal + m.ship).toLocaleString()}৳</span></div>`;
+                    hist.innerHTML = `<div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'NEW ORDER'}</div><div class="flex justify-between mt-1 opacity-60 text-[8px] font-black"><span>${m.id}</span><span>${(subtotal + (m.ship || 60)).toLocaleString()}৳</span></div>`;
                     hist.onclick = () => { activeDocId = m.docId; this.renderMemos(); };
                     historyList.appendChild(hist);
                 });
@@ -622,14 +520,81 @@
             },
 
             async updateMemo(data, id = null) {
-                if(!currentUser) return;
                 const tid = id || activeDocId;
-                if(!tid) return;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', tid), data);
+                if(!tid || !currentUser) return;
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', tid), data);
+                } catch(e) { Logger.log(`Update Error: ${e.message}`); }
             },
 
             async deleteMemo(id) {
-                if(confirm("Delete?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
+                if(confirm("Permanently delete this memo?")) {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
+                    if(activeDocId === id) activeDocId = null;
+                }
+            },
+
+            async createNewMemo() {
+                if(!currentUser) { Logger.log("Cannot create: Auth missing"); return; }
+                const docId = Date.now().toString();
+                const newMemo = {
+                    id: '#' + Math.floor(1000 + Math.random() * 9000),
+                    date: new Date().toLocaleDateString('en-GB'),
+                    name: '', phone: '', addr: '', instructions: '', ship: 60, tag: 'DHAKA',
+                    status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now(),
+                    owner: currentUser.uid
+                };
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), newMemo);
+                    activeDocId = docId;
+                    Logger.log("Created New Memo");
+                } catch(e) { Logger.log(`Create Error: ${e.message}`); }
+            },
+
+            bindGlobalEvents() {
+                document.getElementById('btn-new-memo').onclick = () => this.createNewMemo();
+                document.getElementById('btn-open-picker').onclick = () => this.openPicker();
+                document.getElementById('btn-close-picker').onclick = () => this.closePicker();
+                document.getElementById('btn-manage-inventory-cog').onclick = () => this.toggleInventoryModal(true);
+                document.getElementById('btn-close-inventory').onclick = () => this.toggleInventoryModal(false);
+                document.getElementById('btn-save-inv').onclick = () => this.saveInventoryItem();
+                
+                document.querySelectorAll('[data-action]').forEach(btn => {
+                    btn.onclick = () => {
+                        const action = btn.dataset.action;
+                        if (action === 'setLifecycle') this.updateMemo({ status: btn.dataset.state });
+                        if (action === 'setType') this.updateMemo({ type: btn.dataset.type });
+                        if (action === 'setShip') this.updateMemo({ ship: parseInt(btn.dataset.val), tag: btn.dataset.tag });
+                    };
+                });
+
+                document.getElementById('quick-parse').oninput = (e) => {
+                    const val = e.target.value;
+                    if(!val || !activeDocId) return;
+                    const lines = val.split('\n').filter(l => l.trim());
+                    const phone = (val.match(/01[3-9]\d{8}/) || [""])[0];
+                    if (lines.length > 0) {
+                        const name = lines[0].toUpperCase();
+                        const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
+                        this.updateMemo({ name, phone, addr });
+                        setTimeout(() => { e.target.value = ''; }, 1000);
+                    }
+                };
+
+                // Export buttons
+                const exporters = ['steadfast', 'pathao', 'carrybee'];
+                exporters.forEach(id => {
+                    const el = document.getElementById(`btn-export-${id}`);
+                    if(el) el.onclick = () => this.exportLogistics(id);
+                });
+
+                // Secret Debug Toggle: Hold Shift + D
+                window.addEventListener('keydown', (e) => {
+                    if (e.shiftKey && e.key === 'D') {
+                        const dbg = document.getElementById('debug-console');
+                        dbg.style.display = dbg.style.display === 'block' ? 'none' : 'block';
+                    }
+                });
             },
 
             openPicker() {
@@ -652,7 +617,7 @@
                                 ${(item.colors || []).map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('') || '<button class="pill-btn color-opt active-state" data-val="—">—</button>'}
                             </div>
                         </div>
-                        <button class="w-full bg-white text-black py-3 rounded-lg font-black text-[10px] uppercase tracking-widest btn-add-final">Confirm</button>
+                        <button class="w-full bg-white text-black py-3 rounded-lg font-black text-[10px] uppercase tracking-widest btn-add-final">Add to Memo</button>
                     </div>
                 `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs text-white">No items in catalog.</div>';
 
@@ -663,7 +628,7 @@
                     box.querySelectorAll('.size-opt').forEach(b => b.onclick = () => { box.querySelectorAll('.size-opt').forEach(x=>x.classList.remove('active-state')); b.classList.add('active-state'); sZ = b.dataset.val; });
                     box.querySelectorAll('.color-opt').forEach(b => b.onclick = () => { box.querySelectorAll('.color-opt').forEach(x=>x.classList.remove('active-state')); b.classList.add('active-state'); sC = b.dataset.val; });
                     box.querySelector('.btn-add-final').onclick = () => {
-                        if(!sZ || !sC) return alert("Select options");
+                        if(!sZ || !sC) { alert("Please select size/color first"); return; }
                         const m = memos.find(m => m.docId === activeDocId);
                         this.updateMemo({ items: [...(m.items || []), { name: item.name, variant: sZ, color: sC, price: item.price, qty: 1 }] });
                         this.closePicker();
@@ -672,30 +637,59 @@
             },
 
             closePicker() { document.getElementById('picker-modal').classList.replace('flex', 'hidden'); },
-
-            parseOrder(val) {
-                if (!val || !activeDocId) return;
-                const lines = val.split('\n').filter(l => l.trim());
-                const phone = (val.match(/01[3-9]\d{8}/) || [""])[0];
-                if (lines.length > 0) {
-                    const name = lines[0].toUpperCase();
-                    const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
-                    this.updateMemo({ name, phone, addr });
-                    setTimeout(() => { document.getElementById('quick-parse').value = ''; }, 1000);
-                }
+            toggleInventoryModal(show) { 
+                const m = document.getElementById('inventory-modal');
+                m.classList.toggle('hidden', !show); 
+                m.classList.toggle('flex', show);
             },
 
-            exportCSV(p) {
+            async saveInventoryItem() {
+                const name = document.getElementById('inv-name').value.trim().toUpperCase();
+                const price = parseInt(document.getElementById('inv-price').value);
+                const vars = document.getElementById('inv-vars').value.split(',').map(v => v.trim()).filter(v => v);
+                const colors = document.getElementById('inv-colors').value.split(',').map(c => c.trim()).filter(c => c);
+
+                if(!name || isNaN(price) || !currentUser) return;
+
+                const itemId = Date.now().toString();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
+                        name, price, variants: vars, colors, createdAt: Date.now(), owner: currentUser.uid
+                    });
+                    document.getElementById('inv-name').value = '';
+                    document.getElementById('inv-price').value = '';
+                    Logger.log("Inventory Saved");
+                } catch(e) { Logger.log(`Inventory Error: ${e.message}`); }
+            },
+
+            renderInventoryTable() {
+                const tbody = document.getElementById('inv-table-body');
+                tbody.innerHTML = inventory.map(item => `
+                    <tr class="border-b border-white/5 group">
+                        <td class="py-4 uppercase text-white">${item.name}</td>
+                        <td class="py-4 text-amber-500 font-black">৳${item.price.toLocaleString()}</td>
+                        <td class="py-4 opacity-50 text-[10px]">${(item.variants || []).join(', ')}</td>
+                        <td class="py-4 opacity-50 uppercase text-[10px]">${(item.colors || []).join(', ')}</td>
+                        <td class="py-4 text-right">
+                            <button onclick="window.delInv('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors p-2"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+                window.delInv = async (id) => { if(confirm("Remove item?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id)); };
+            },
+
+            exportLogistics(p) {
                 if (!memos.length) return;
-                const heads = p === 'steadfast' ? ["Invoice","Name","Contact","Address","Amount","Note"] : p === 'pathao' ? ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"] : ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
                 const rows = memos.map(m => {
-                    const total = (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship;
-                    return p === 'steadfast' ? [m.id, m.name, m.phone, m.addr, total, m.instructions] : p === 'pathao' ? ["ONEN STUDIO", m.id, m.name, m.phone, m.addr, m.tag, total, m.instructions] : [m.name, m.phone, m.addr, total, m.id, m.instructions];
+                    const total = (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + (m.ship || 60);
+                    if(p === 'steadfast') return [m.id, m.name, m.phone, m.addr, total, m.instructions || ''];
+                    if(p === 'pathao') return ["ONEN STUDIO", m.id, m.name, m.phone, m.addr, m.tag || 'DHAKA', total, m.instructions || ''];
+                    return [m.name, m.phone, m.addr, total, m.id, m.instructions || ''];
                 });
-                const content = [heads.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
-                const blob = new Blob([content], { type: 'text/csv' });
-                const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob);
-                a.download = `ONEN_${p}.csv`; a.click();
+                const heads = p === 'steadfast' ? ["Invoice","Name","Contact","Address","Amount","Note"] : p === 'pathao' ? ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"] : ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
+                const content = [heads.join(','), ...rows.map(r => r.map(c => `"${String(c).replace(/,/g, ' ')}"`).join(','))].join('\n');
+                const b = new Blob([content], { type: 'text/csv' });
+                const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `ONEN_${p}.csv`; a.click();
             }
         };
 
