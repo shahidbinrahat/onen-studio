@@ -136,7 +136,7 @@
             </div>
 
             <button id="btn-retry-auth" class="hidden w-full border border-red-500/50 text-red-500 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest mt-auto">
-                Timeout: Reconnect?
+                Connection Failed: Retry?
             </button>
         </aside>
 
@@ -208,8 +208,14 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // GLOBAL CONFIGURATION
-        const firebaseConfig = JSON.parse(__firebase_config);
+        // GLOBAL CONFIGURATION WITH ERROR PROTECTION
+        let firebaseConfig = {};
+        try {
+            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        } catch (e) {
+            console.error("Firebase config parsing error:", e);
+        }
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -221,9 +227,8 @@
 
         const Core = {
             async start() {
-                this.updateSync('syncing', 'Security Handshake...');
+                this.updateSync('syncing', 'Connecting to Nexus...');
                 
-                // MANDATORY RULE 3: Auth before Queries
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -232,8 +237,8 @@
                             await signInAnonymously(auth);
                         }
                     } catch (e) {
-                        console.error("Auth Failure:", e);
-                        this.updateSync('offline', 'Auth Failed');
+                        console.error("Auth Exception:", e);
+                        this.updateSync('offline', 'Security Alert');
                     }
                 };
 
@@ -247,7 +252,7 @@
                     }
                 });
 
-                // Fail-safe
+                // Visibility monitor
                 setTimeout(() => {
                     if (!currentUser) document.getElementById('btn-retry-auth').classList.remove('hidden');
                 }, 10000);
@@ -266,12 +271,12 @@
                 document.getElementById('ui-loader')?.classList.add('hidden');
                 document.getElementById('ui-controls')?.classList.remove('hidden');
                 document.getElementById('bar-controls')?.classList.remove('hidden');
-                this.updateSync('online', 'Connection Secure');
+                this.updateSync('online', 'Nexus Linked');
             },
 
             initSync() {
                 if (!currentUser) return;
-                // MANDATORY RULE 1: Strict Paths
+                // RULE 1: Strict Paths Required
                 const memoRef = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 
                 onSnapshot(memoRef, (snap) => {
@@ -282,8 +287,8 @@
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.render();
                 }, (err) => {
-                    console.error("Sync Error:", err);
-                    this.updateSync('offline', 'Access Denied');
+                    console.error("Firestore error:", err);
+                    this.updateSync('offline', 'Data Locked');
                 });
             },
 
@@ -294,9 +299,8 @@
                     id: '#' + Math.floor(1000 + Math.random() * 9000),
                     date: new Date().toLocaleDateString('en-GB'),
                     name: '', phone: '', addr: '', ship: 60, tag: 'DHAKA',
-                    status: 'PENDING', items: [{ desc: 'Product Item', qty: 1, price: 0 }], createdAt: Date.now()
+                    status: 'PENDING', items: [{ desc: 'Standard Product', qty: 1, price: 0 }], createdAt: Date.now()
                 };
-                // MANDATORY RULE 1: Strict Paths
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), newDoc);
                 activeDocId = id;
             },
@@ -308,7 +312,7 @@
                 history.innerHTML = '';
 
                 if (memos.length === 0) {
-                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">No active shipments found.</div>`;
+                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">Terminal Ready. No active manifests.</div>`;
                     return;
                 }
 
@@ -331,7 +335,6 @@
 
                     const memoRefDoc = doc(db, 'artifacts', appId, 'public', 'data', 'memos', m.docId);
 
-                    // Event listeners with debounce or simple update
                     card.querySelector('.m-name').onchange = (e) => updateDoc(memoRefDoc, { name: e.target.value.toUpperCase() });
                     card.querySelector('.m-phone').onchange = (e) => updateDoc(memoRefDoc, { phone: e.target.value });
                     card.querySelector('.m-addr').onchange = (e) => updateDoc(memoRefDoc, { addr: e.target.value });
@@ -363,7 +366,7 @@
 
                     card.querySelector('.m-total').innerText = (subtotal + parseInt(m.ship || 60)).toLocaleString();
                     card.querySelector('.add-item-btn').onclick = () => {
-                        const newItems = [...(m.items || []), { desc: 'New Item', qty: 1, price: 0 }];
+                        const newItems = [...(m.items || []), { desc: 'New Line', qty: 1, price: 0 }];
                         updateDoc(memoRefDoc, { items: newItems });
                     };
 
@@ -375,11 +378,10 @@
 
                     workspace.appendChild(card);
 
-                    // History Item
                     const hi = document.createElement('div');
                     hi.className = `p-3 glass cursor-pointer transition-all border-l-4 ${isActive ? 'border-amber-500 bg-white/5 opacity-100' : 'border-transparent opacity-40'}`;
                     hi.innerHTML = `
-                        <div class="text-[9px] font-black truncate">${m.name || 'NEW ENTRY'}</div>
+                        <div class="text-[9px] font-black truncate">${m.name || 'UNNAMED'}</div>
                         <div class="text-[7px] opacity-50 flex justify-between">
                             <span>${m.id}</span>
                             <span>৳${(subtotal + parseInt(m.ship)).toLocaleString()}</span>
@@ -397,7 +399,7 @@
             }
         };
 
-        // Actions
+        // UI Event Listeners
         document.getElementById('btn-new-memo').onclick = () => Core.createMemo();
         
         document.querySelectorAll('[data-action]').forEach(btn => {
