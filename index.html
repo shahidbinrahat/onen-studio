@@ -201,7 +201,7 @@
                 <div class="flex items-center gap-6">
                     <div>
                         <h3 class="text-3xl font-black uppercase tracking-tighter text-white">Select Product</h3>
-                        <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Pick item & size to add</p>
+                        <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Select Size & Color to Add</p>
                     </div>
                     <button id="btn-manage-inventory-cog" class="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-amber-500 hover:border-amber-500/50 transition-all">
                         <i class="fa-solid fa-cog"></i>
@@ -224,7 +224,7 @@
                 <button id="btn-close-inventory" class="text-white opacity-20 hover:opacity-100 text-5xl">&times;</button>
             </div>
 
-            <div class="grid grid-cols-3 gap-8 mb-8">
+            <div class="grid grid-cols-4 gap-8 mb-8">
                 <div class="space-y-2">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Title</label>
                     <input id="inv-name" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Product Name">
@@ -234,10 +234,14 @@
                     <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Price">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Sizes (S, M, L...)</label>
-                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="S, M, L, XL">
+                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Sizes (S, M...)</label>
+                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="S, M, L">
                 </div>
-                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-3 hover:scale-[1.01] transition-all">Save to Catalog</button>
+                <div class="space-y-2">
+                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Colors (Black, Red...)</label>
+                    <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Black, Grey">
+                </div>
+                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all">Save to Catalog</button>
             </div>
 
             <div class="flex-grow overflow-y-auto custom-scroll pr-4">
@@ -246,7 +250,8 @@
                         <tr>
                             <th class="pb-4">Product</th>
                             <th class="pb-4">Price</th>
-                            <th class="pb-4">Available Sizes</th>
+                            <th class="pb-4">Sizes</th>
+                            <th class="pb-4">Colors</th>
                             <th class="pb-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -291,6 +296,7 @@
                             <th class="pb-3 w-8">#</th>
                             <th class="pb-3">DESCRIPTION</th>
                             <th class="pb-3 text-center">SIZE</th>
+                            <th class="pb-3 text-center">COLOR</th>
                             <th class="pb-3 text-center w-12">QTY</th>
                             <th class="pb-3 text-right w-24">PRICE</th>
                             <th class="pb-3 w-8 no-print"></th>
@@ -427,18 +433,22 @@
                 const name = document.getElementById('inv-name').value.trim();
                 const price = parseInt(document.getElementById('inv-price').value);
                 const varsInput = document.getElementById('inv-vars').value;
+                const colorsInput = document.getElementById('inv-colors').value;
+                
                 const variants = varsInput.split(',').map(v => v.trim()).filter(v => v);
+                const colors = colorsInput.split(',').map(v => v.trim()).filter(v => v);
 
                 if (!name || isNaN(price)) return;
 
                 const itemId = crypto.randomUUID();
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
-                    name, price, variants, createdAt: Date.now()
+                    name, price, variants, colors, createdAt: Date.now()
                 });
 
                 document.getElementById('inv-name').value = '';
                 document.getElementById('inv-price').value = '';
                 document.getElementById('inv-vars').value = '';
+                document.getElementById('inv-colors').value = '';
             },
 
             async deleteInventoryItem(id) {
@@ -453,7 +463,8 @@
                     <tr class="border-b border-white/5 group">
                         <td class="py-4 uppercase text-white">${item.name}</td>
                         <td class="py-4 text-amber-500">৳${item.price.toLocaleString()}</td>
-                        <td class="py-4 opacity-50">${(item.variants || []).join(' • ')}</td>
+                        <td class="py-4 opacity-50">${(item.variants || []).join(', ') || '—'}</td>
+                        <td class="py-4 opacity-50 uppercase">${(item.colors || []).join(', ') || '—'}</td>
                         <td class="py-4 text-right">
                             <button onclick="window.deleteInvItem('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors">
                                 <i class="fa-solid fa-trash-can"></i>
@@ -522,7 +533,8 @@
                         tr.innerHTML = `
                             <td class="py-3 opacity-20">${idx+1}</td>
                             <td class="py-3 uppercase text-[11px]">${item.name}</td>
-                            <td class="text-center text-[11px]">${item.variant || 'N/A'}</td>
+                            <td class="text-center text-[11px]">${item.variant || '—'}</td>
+                            <td class="text-center text-[11px] uppercase">${item.color || '—'}</td>
                             <td class="text-center font-black">
                                 <div class="flex items-center justify-center gap-2 no-print">
                                     <button class="q-dec opacity-30 hover:opacity-100 text-lg">×</button>
@@ -579,30 +591,69 @@
                 modal.classList.replace('hidden', 'flex');
                 
                 grid.innerHTML = inventory.length ? inventory.map(item => `
-                    <div class="glass p-8 border-white/5 hover:border-amber-500/30">
-                        <div class="flex justify-between mb-4">
-                            <h4 class="font-black uppercase text-lg text-white">${item.name}</h4>
+                    <div class="glass p-8 border-white/5 flex flex-col gap-6" id="picker-item-${item.id}">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4>
                             <span class="text-amber-500 font-bold">৳${item.price.toLocaleString()}</span>
                         </div>
-                        <div class="flex flex-wrap gap-2">
-                            ${(item.variants || ['Universal']).map(v => `
-                                <button class="pill-btn hover:bg-white hover:text-black border-white/10 add-v-btn" 
-                                        data-name="${item.name}" 
-                                        data-var="${v}" 
-                                        data-price="${item.price}">
-                                    ${v}
-                                </button>`).join('')}
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Size Selection</label>
+                                <div class="flex flex-wrap gap-2 size-selector">
+                                    ${(item.variants || ['Universal']).map(v => `<button class="pill-btn size-opt" data-val="${v}">${v}</button>`).join('')}
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Color Selection</label>
+                                <div class="flex flex-wrap gap-2 color-selector">
+                                    ${(item.colors || ['Universal']).map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('')}
+                                </div>
+                            </div>
                         </div>
+
+                        <button class="w-full bg-white text-black py-3 rounded-lg font-black text-[10px] uppercase tracking-widest mt-2 hover:bg-amber-500 transition-colors btn-add-final" data-id="${item.id}">
+                            Confirm Selection
+                        </button>
                     </div>
                 `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs">No products in catalog. Click the cog to add items.</div>';
 
-                grid.querySelectorAll('.add-v-btn').forEach(btn => {
-                    btn.onclick = () => {
+                // Handle sub-selection within picker
+                inventory.forEach(item => {
+                    const container = document.getElementById(`picker-item-${item.id}`);
+                    if(!container) return;
+                    
+                    let selectedSize = item.variants?.length ? null : 'Universal';
+                    let selectedColor = item.colors?.length ? null : 'Universal';
+
+                    container.querySelectorAll('.size-opt').forEach(btn => {
+                        btn.onclick = () => {
+                            container.querySelectorAll('.size-opt').forEach(b => b.classList.remove('active-state'));
+                            btn.classList.add('active-state');
+                            selectedSize = btn.dataset.val;
+                        }
+                    });
+
+                    container.querySelectorAll('.color-opt').forEach(btn => {
+                        btn.onclick = () => {
+                            container.querySelectorAll('.color-opt').forEach(b => b.classList.remove('active-state'));
+                            btn.classList.add('active-state');
+                            selectedColor = btn.dataset.val;
+                        }
+                    });
+
+                    container.querySelector('.btn-add-final').onclick = () => {
+                        if(!selectedSize || !selectedColor) {
+                            alert("Please select both size and color.");
+                            return;
+                        }
                         const m = memos.find(m => m.docId === activeDocId);
                         const newItem = { 
-                            name: btn.dataset.name, 
-                            variant: btn.dataset.var, 
-                            price: parseInt(btn.dataset.price), 
+                            name: item.name, 
+                            variant: selectedSize, 
+                            color: selectedColor,
+                            price: item.price, 
                             qty: 1 
                         };
                         const items = [...(m.items || []), newItem];
