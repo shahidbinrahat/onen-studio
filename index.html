@@ -227,19 +227,19 @@
             <div class="grid grid-cols-4 gap-8 mb-8">
                 <div class="space-y-2">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Title</label>
-                    <input id="inv-name" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Product Name">
+                    <input id="inv-name" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Product Name">
                 </div>
                 <div class="space-y-2">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Price (৳)</label>
-                    <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Price">
+                    <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Price">
                 </div>
                 <div class="space-y-2">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Sizes (S, M...)</label>
-                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="S, M, L">
+                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="S, M, L">
                 </div>
                 <div class="space-y-2">
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Colors (Black, Red...)</label>
-                    <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Black, Grey">
+                    <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Black, Grey">
                 </div>
                 <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all">Save to Catalog</button>
             </div>
@@ -358,6 +358,7 @@
         let memos = [];
         let inventory = [];
         let activeDocId = null;
+        let currentUser = null;
 
         const Engine = {
             async init() {
@@ -365,15 +366,20 @@
                 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        currentUser = user;
                         this.updateSyncStatus('online', 'Live');
                         this.setupListeners();
                     }
                 });
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (e) {
+                    console.error("Auth Error", e);
                 }
 
                 this.bindEvents();
@@ -387,13 +393,15 @@
             },
 
             setupListeners() {
+                if(!currentUser) return;
+
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), (snap) => {
                     const data = [];
                     snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
                     memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.renderMemos();
-                }, (err) => console.error(err));
+                });
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), (snap) => {
                     inventory = [];
@@ -402,7 +410,7 @@
                     if(!document.getElementById('picker-modal').classList.contains('hidden')) {
                         this.openPicker();
                     }
-                }, (err) => console.error(err));
+                });
             },
 
             bindEvents() {
@@ -430,25 +438,39 @@
             },
 
             async saveInventoryItem() {
-                const name = document.getElementById('inv-name').value.trim();
-                const price = parseInt(document.getElementById('inv-price').value);
-                const varsInput = document.getElementById('inv-vars').value;
-                const colorsInput = document.getElementById('inv-colors').value;
+                if(!currentUser) return;
+
+                const nameEl = document.getElementById('inv-name');
+                const priceEl = document.getElementById('inv-price');
+                const varsEl = document.getElementById('inv-vars');
+                const colorsEl = document.getElementById('inv-colors');
+
+                const name = nameEl.value.trim();
+                const price = parseInt(priceEl.value);
+                const varsInput = varsEl.value;
+                const colorsInput = colorsEl.value;
                 
                 const variants = varsInput.split(',').map(v => v.trim()).filter(v => v);
                 const colors = colorsInput.split(',').map(v => v.trim()).filter(v => v);
 
-                if (!name || isNaN(price)) return;
+                if (!name || isNaN(price)) {
+                    alert("Name and Price are required.");
+                    return;
+                }
 
                 const itemId = crypto.randomUUID();
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
-                    name, price, variants, colors, createdAt: Date.now()
-                });
-
-                document.getElementById('inv-name').value = '';
-                document.getElementById('inv-price').value = '';
-                document.getElementById('inv-vars').value = '';
-                document.getElementById('inv-colors').value = '';
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
+                        name, price, variants, colors, createdAt: Date.now()
+                    });
+                    
+                    nameEl.value = '';
+                    priceEl.value = '';
+                    varsEl.value = '';
+                    colorsEl.value = '';
+                } catch (e) {
+                    console.error("Save Error", e);
+                }
             },
 
             async deleteInventoryItem(id) {
@@ -482,6 +504,7 @@
             },
 
             async createNewMemo() {
+                if(!currentUser) return;
                 const id = '#' + Math.floor(1000 + Math.random() * 9000);
                 const docId = crypto.randomUUID();
                 const memo = {
@@ -546,9 +569,9 @@
                             <td class="text-right text-[12px]">${(item.price * item.qty).toLocaleString()}</td>
                             <td class="no-print text-right"><span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span></td>
                         `;
-                        tr.querySelector('.q-inc').onclick = () => { m.items[idx].qty++; this.updateMemo({ items: m.items }, m.docId); };
-                        tr.querySelector('.q-dec').onclick = () => { if(m.items[idx].qty > 1) { m.items[idx].qty--; this.updateMemo({ items: m.items }, m.docId); } };
-                        tr.querySelector('.row-remove-btn').onclick = () => { m.items.splice(idx,1); this.updateMemo({ items: m.items }, m.docId); };
+                        tr.querySelector('.q-inc').onclick = (e) => { e.stopPropagation(); m.items[idx].qty++; this.updateMemo({ items: m.items }, m.docId); };
+                        tr.querySelector('.q-dec').onclick = (e) => { e.stopPropagation(); if(m.items[idx].qty > 1) { m.items[idx].qty--; this.updateMemo({ items: m.items }, m.docId); } };
+                        tr.querySelector('.row-remove-btn').onclick = (e) => { e.stopPropagation(); m.items.splice(idx,1); this.updateMemo({ items: m.items }, m.docId); };
                         rows.appendChild(tr);
                     });
 
@@ -575,6 +598,7 @@
             },
 
             async updateMemo(data, id = null) {
+                if(!currentUser) return;
                 const targetId = id || activeDocId;
                 if(!targetId) return;
                 await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', targetId), data);
@@ -601,14 +625,14 @@
                             <div>
                                 <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Size Selection</label>
                                 <div class="flex flex-wrap gap-2 size-selector">
-                                    ${(item.variants || ['Universal']).map(v => `<button class="pill-btn size-opt" data-val="${v}">${v}</button>`).join('')}
+                                    ${(item.variants || []).length ? item.variants.map(v => `<button class="pill-btn size-opt" data-val="${v}">${v}</button>`).join('') : `<button class="pill-btn size-opt active-state" data-val="Universal">Universal</button>`}
                                 </div>
                             </div>
 
                             <div>
                                 <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Color Selection</label>
                                 <div class="flex flex-wrap gap-2 color-selector">
-                                    ${(item.colors || ['Universal']).map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('')}
+                                    ${(item.colors || []).length ? item.colors.map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('') : `<button class="pill-btn color-opt active-state" data-val="Universal">Universal</button>`}
                                 </div>
                             </div>
                         </div>
@@ -617,7 +641,7 @@
                             Confirm Selection
                         </button>
                     </div>
-                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs">No products in catalog. Click the cog to add items.</div>';
+                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs text-white">No products in catalog. Click the cog to add items.</div>';
 
                 // Handle sub-selection within picker
                 inventory.forEach(item => {
