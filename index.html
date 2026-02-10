@@ -93,6 +93,7 @@
 
         #sync-indicator.online { color: #10b981; }
         #sync-indicator.offline { color: #ef4444; }
+        #sync-indicator.syncing { color: #f59e0b; }
 
         @media print { 
             .no-print { display: none !important; } 
@@ -108,15 +109,6 @@
                 border: none;
             } 
         }
-
-        .loading-pulse {
-            animation: pulse 1.5s infinite;
-        }
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
     </style>
 </head>
 <body>
@@ -126,7 +118,7 @@
         <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-8 custom-scroll overflow-y-auto">
             <div class="flex justify-between items-start">
                 <div class="text-amber-500 font-black italic text-3xl tracking-tighter">ONEN STUDIO.</div>
-                <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold opacity-80 mt-2">
+                <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold syncing mt-2 cursor-pointer" title="Click to force reconnect">
                     <i class="fa-solid fa-circle text-[6px]"></i> <span>Syncing...</span>
                 </div>
             </div>
@@ -250,7 +242,7 @@
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Colors (Black, Red...)</label>
                     <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Black, Grey">
                 </div>
-                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-wait">Save to Catalog</button>
+                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all disabled:opacity-50">Save to Catalog</button>
             </div>
 
             <div class="flex-grow overflow-y-auto custom-scroll pr-4">
@@ -350,36 +342,46 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // CONFIGURATION
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // Use the default provided appId strictly
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-logistics-v2';
 
         let memos = [];
         let inventory = [];
         let activeDocId = null;
         let currentUser = null;
+        let unsubMemos = null;
+        let unsubInv = null;
 
         const Engine = {
             async init() {
-                this.updateSyncStatus('offline', 'Connecting...');
+                this.updateSyncStatus('syncing', 'Authenticating...');
                 
                 // Track Auth State
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
+                        console.log("Auth Success:", user.uid);
                         currentUser = user;
                         this.updateSyncStatus('online', 'Live');
                         this.setupListeners();
                     } else {
-                        currentUser = null;
-                        this.updateSyncStatus('offline', 'Authenticating...');
+                        console.log("Auth Missing. Retrying...");
+                        this.updateSyncStatus('syncing', 'Retrying Auth...');
+                        this.attemptSignIn();
                     }
                 });
 
-                // Authenticate FIRST
+                this.attemptSignIn();
+                this.bindEvents();
+                
+                // Manual reconnect click
+                document.getElementById('sync-indicator').onclick = () => this.attemptSignIn();
+            },
+
+            async attemptSignIn() {
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -387,42 +389,53 @@
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    console.error("Auth Failure", e);
+                    console.error("Manual Auth Error:", e);
+                    this.updateSyncStatus('offline', 'Auth Failed');
                 }
-
-                this.bindEvents();
             },
 
             updateSyncStatus(status, label) {
                 const el = document.getElementById('sync-indicator');
                 if(!el) return;
-                el.className = `text-[10px] flex items-center gap-1.5 font-bold opacity-80 mt-2 ${status}`;
+                el.className = `text-[10px] flex items-center gap-1.5 font-bold mt-2 cursor-pointer ${status}`;
                 el.querySelector('span').innerText = label;
             },
 
             setupListeners() {
                 if(!currentUser) return;
 
-                // Memos Listener - Using exact path Rule 1
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), 
+                // Cleanup previous if any
+                if(unsubMemos) unsubMemos();
+                if(unsubInv) unsubInv();
+
+                this.updateSyncStatus('syncing', 'Fetching Data...');
+
+                // Rule 1: /artifacts/{appId}/public/data/{collection}
+                const memoRef = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
+                const invRef = collection(db, 'artifacts', appId, 'public', 'data', 'inventory');
+
+                unsubMemos = onSnapshot(memoRef, 
                     (snap) => {
                         const data = [];
                         snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
                         memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                         if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                         this.renderMemos();
+                        this.updateSyncStatus('online', 'Live');
                     },
-                    (err) => console.error("Memo Error:", err)
+                    (err) => {
+                        console.error("Memo Sync Error:", err);
+                        this.updateSyncStatus('offline', 'Sync Error');
+                    }
                 );
 
-                // Inventory Listener - Using exact path Rule 1
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), 
+                unsubInv = onSnapshot(invRef, 
                     (snap) => {
                         inventory = [];
                         snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
                         this.renderInventoryTable();
                     },
-                    (err) => console.error("Inventory Error:", err)
+                    (err) => console.error("Inv Sync Error:", err)
                 );
             },
 
@@ -451,87 +464,47 @@
             },
 
             async saveInventoryItem() {
-                // Check auth
-                if (!auth.currentUser) {
-                    alert("Awaiting session... please try again in 2 seconds.");
+                if(!currentUser) {
+                    this.attemptSignIn();
                     return;
                 }
-
                 const btn = document.getElementById('btn-save-inv');
                 const nameEl = document.getElementById('inv-name');
                 const priceEl = document.getElementById('inv-price');
-                const varsEl = document.getElementById('inv-vars');
-                const colorsEl = document.getElementById('inv-colors');
-
-                const name = nameEl.value.trim();
+                const name = nameEl.value.trim().toUpperCase();
                 const price = parseInt(priceEl.value);
-                
-                if (!name || isNaN(price)) {
-                    alert("Name and price are required.");
-                    return;
-                }
 
-                const variants = varsEl.value.split(',').map(v => v.trim()).filter(v => v);
-                const colors = colorsEl.value.split(',').map(v => v.trim()).filter(v => v);
+                if (!name || isNaN(price)) return;
 
                 btn.disabled = true;
-                btn.innerText = "WRITING TO DATABASE...";
+                btn.innerText = "WRITING...";
 
                 try {
-                    // Item ID
                     const itemId = Date.now().toString();
-                    
-                    // Mandatory Path Format: /artifacts/{appId}/public/data/{collection}
                     const productDoc = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
                     
                     await setDoc(productDoc, {
-                        name: name.toUpperCase(),
-                        price: price,
-                        variants: variants,
-                        colors: colors,
+                        name,
+                        price,
+                        variants: document.getElementById('inv-vars').value.split(',').map(v => v.trim()).filter(v => v),
+                        colors: document.getElementById('inv-colors').value.split(',').map(v => v.trim()).filter(v => v),
                         createdAt: Date.now(),
-                        owner: auth.currentUser.uid
+                        owner: currentUser.uid
                     });
-                    
-                    nameEl.value = '';
-                    priceEl.value = '';
-                    varsEl.value = '';
-                    colorsEl.value = '';
-                    
-                    btn.innerText = "SAVED!";
-                    setTimeout(() => {
-                        btn.disabled = false;
-                        btn.innerText = "Save to Catalog";
-                    }, 1000);
 
+                    nameEl.value = ''; priceEl.value = '';
+                    btn.innerText = "SAVED";
+                    setTimeout(() => { btn.disabled = false; btn.innerText = "Save to Catalog"; }, 1000);
                 } catch (e) {
                     console.error("Save Error:", e);
-                    // Handle common permission race condition
-                    if (e.code === 'permission-denied') {
-                        btn.innerText = "RETRIEVING ACCESS...";
-                        setTimeout(() => this.saveInventoryItem(), 1500);
-                    } else {
-                        alert("Storage Error: " + e.message);
-                        btn.disabled = false;
-                        btn.innerText = "Save to Catalog";
-                    }
-                }
-            },
-
-            async deleteInventoryItem(id) {
-                if(!auth.currentUser) return;
-                if(confirm("Permanently remove product?")) {
-                    try {
-                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
-                    } catch (e) {
-                        alert("Delete failed.");
-                    }
+                    btn.innerText = "ERROR - RETRYING";
+                    setTimeout(() => this.saveInventoryItem(), 1000);
                 }
             },
 
             renderInventoryTable() {
                 const tbody = document.getElementById('inv-table-body');
-                tbody.innerHTML = inventory.length > 0 ? inventory.map(item => `
+                tbody.innerHTML = inventory.length ? inventory.map(item => `
                     <tr class="border-b border-white/5 group">
                         <td class="py-4 uppercase text-white">${item.name}</td>
                         <td class="py-4 text-amber-500 font-black">৳${item.price.toLocaleString()}</td>
@@ -545,7 +518,9 @@
                     </tr>
                 `).join('') : '<tr><td colspan="5" class="py-10 text-center opacity-20 uppercase font-black tracking-widest text-[10px]">Catalog is empty</td></tr>';
                 
-                window.deleteInvItem = (id) => this.deleteInventoryItem(id);
+                window.deleteInvItem = async (id) => {
+                    if(confirm("Remove?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
+                };
             },
 
             toggleInventoryModal(show) {
@@ -555,14 +530,14 @@
             },
 
             async createNewMemo() {
-                if(!auth.currentUser) return;
-                const id = '#' + Math.floor(1000 + Math.random() * 9000);
+                if(!currentUser) return;
                 const docId = Date.now().toString();
                 const memo = {
-                    id, date: new Date().toLocaleDateString('en-GB'),
+                    id: '#' + Math.floor(1000 + Math.random() * 9000),
+                    date: new Date().toLocaleDateString('en-GB'),
                     name: '', phone: '', addr: '', instructions: '', ship: 60, tag: 'DHAKA',
                     status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now(),
-                    owner: auth.currentUser.uid
+                    owner: currentUser.uid
                 };
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
                 activeDocId = docId;
@@ -571,8 +546,6 @@
             renderMemos() {
                 const workspace = document.getElementById('workspace');
                 const historyList = document.getElementById('history-list');
-                if(!workspace) return;
-                
                 workspace.innerHTML = '';
                 historyList.innerHTML = '';
 
@@ -596,10 +569,7 @@
                         el.value = m[key] || '';
                         el.onchange = (e) => this.updateMemo({ [key]: e.target.value.toUpperCase() }, m.docId);
                     };
-                    bind('.m-name', 'name');
-                    bind('.m-phone', 'phone');
-                    bind('.m-addr', 'addr');
-                    bind('.m-instructions', 'instructions');
+                    bind('.m-name', 'name'); bind('.m-phone', 'phone'); bind('.m-addr', 'addr'); bind('.m-instructions', 'instructions');
 
                     let subtotal = 0;
                     const rows = card.querySelector('.m-rows');
@@ -623,9 +593,9 @@
                             <td class="text-right text-[12px]">${(item.price * item.qty).toLocaleString()}</td>
                             <td class="no-print text-right"><span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span></td>
                         `;
-                        tr.querySelector('.q-inc').onclick = (e) => { e.stopPropagation(); m.items[idx].qty++; this.updateMemo({ items: m.items }, m.docId); };
-                        tr.querySelector('.q-dec').onclick = (e) => { e.stopPropagation(); if(m.items[idx].qty > 1) { m.items[idx].qty--; this.updateMemo({ items: m.items }, m.docId); } };
-                        tr.querySelector('.row-remove-btn').onclick = (e) => { e.stopPropagation(); m.items.splice(idx,1); this.updateMemo({ items: m.items }, m.docId); };
+                        tr.querySelector('.q-inc').onclick = () => { m.items[idx].qty++; this.updateMemo({ items: m.items }, m.docId); };
+                        tr.querySelector('.q-dec').onclick = () => { if(m.items[idx].qty > 1) { m.items[idx].qty--; this.updateMemo({ items: m.items }, m.docId); } };
+                        tr.querySelector('.row-remove-btn').onclick = () => { m.items.splice(idx,1); this.updateMemo({ items: m.items }, m.docId); };
                         rows.appendChild(tr);
                     });
 
@@ -652,18 +622,14 @@
             },
 
             async updateMemo(data, id = null) {
-                if(!auth.currentUser) return;
-                const targetId = id || activeDocId;
-                if(!targetId) return;
-                try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', targetId), data);
-                } catch (e) {
-                    console.error("Update error", e);
-                }
+                if(!currentUser) return;
+                const tid = id || activeDocId;
+                if(!tid) return;
+                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', tid), data);
             },
 
             async deleteMemo(id) {
-                if(confirm("Delete this memo?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
+                if(confirm("Delete?")) await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
             },
 
             openPicker() {
@@ -678,67 +644,28 @@
                             <h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4>
                             <span class="text-amber-500 font-bold">৳${item.price.toLocaleString()}</span>
                         </div>
-                        
                         <div class="space-y-4">
-                            <div>
-                                <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Size Selection</label>
-                                <div class="flex flex-wrap gap-2 size-selector">
-                                    ${(item.variants || []).length ? item.variants.map(v => `<button class="pill-btn size-opt" data-val="${v}">${v}</button>`).join('') : `<button class="pill-btn size-opt active-state" data-val="Universal">Universal</button>`}
-                                </div>
+                            <div class="flex flex-wrap gap-2 size-selector">
+                                ${(item.variants || []).map(v => `<button class="pill-btn size-opt" data-val="${v}">${v}</button>`).join('') || '<button class="pill-btn size-opt active-state" data-val="—">—</button>'}
                             </div>
-
-                            <div>
-                                <label class="text-[7px] font-black uppercase opacity-20 tracking-[0.2em] mb-2 block">Color Selection</label>
-                                <div class="flex flex-wrap gap-2 color-selector">
-                                    ${(item.colors || []).length ? item.colors.map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('') : `<button class="pill-btn color-opt active-state" data-val="Universal">Universal</button>`}
-                                </div>
+                            <div class="flex flex-wrap gap-2 color-selector">
+                                ${(item.colors || []).map(c => `<button class="pill-btn color-opt" data-val="${c}">${c}</button>`).join('') || '<button class="pill-btn color-opt active-state" data-val="—">—</button>'}
                             </div>
                         </div>
-
-                        <button class="w-full bg-white text-black py-3 rounded-lg font-black text-[10px] uppercase tracking-widest mt-2 hover:bg-amber-500 transition-colors btn-add-final" data-id="${item.id}">
-                            Confirm Selection
-                        </button>
+                        <button class="w-full bg-white text-black py-3 rounded-lg font-black text-[10px] uppercase tracking-widest btn-add-final">Confirm</button>
                     </div>
-                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs text-white">No products in catalog. Click the cog to add items.</div>';
+                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs text-white">No items in catalog.</div>';
 
                 inventory.forEach(item => {
-                    const container = document.getElementById(`picker-item-${item.id}`);
-                    if(!container) return;
-                    
-                    let selectedSize = item.variants?.length ? null : 'Universal';
-                    let selectedColor = item.colors?.length ? null : 'Universal';
-
-                    container.querySelectorAll('.size-opt').forEach(btn => {
-                        btn.onclick = () => {
-                            container.querySelectorAll('.size-opt').forEach(b => b.classList.remove('active-state'));
-                            btn.classList.add('active-state');
-                            selectedSize = btn.dataset.val;
-                        }
-                    });
-
-                    container.querySelectorAll('.color-opt').forEach(btn => {
-                        btn.onclick = () => {
-                            container.querySelectorAll('.color-opt').forEach(b => b.classList.remove('active-state'));
-                            btn.classList.add('active-state');
-                            selectedColor = btn.dataset.val;
-                        }
-                    });
-
-                    container.querySelector('.btn-add-final').onclick = () => {
-                        if(!selectedSize || !selectedColor) {
-                            alert("Select size and color.");
-                            return;
-                        }
+                    const box = document.getElementById(`picker-item-${item.id}`);
+                    if(!box) return;
+                    let sZ = item.variants?.length ? null : '—', sC = item.colors?.length ? null : '—';
+                    box.querySelectorAll('.size-opt').forEach(b => b.onclick = () => { box.querySelectorAll('.size-opt').forEach(x=>x.classList.remove('active-state')); b.classList.add('active-state'); sZ = b.dataset.val; });
+                    box.querySelectorAll('.color-opt').forEach(b => b.onclick = () => { box.querySelectorAll('.color-opt').forEach(x=>x.classList.remove('active-state')); b.classList.add('active-state'); sC = b.dataset.val; });
+                    box.querySelector('.btn-add-final').onclick = () => {
+                        if(!sZ || !sC) return alert("Select options");
                         const m = memos.find(m => m.docId === activeDocId);
-                        const newItem = { 
-                            name: item.name, 
-                            variant: selectedSize, 
-                            color: selectedColor,
-                            price: item.price, 
-                            qty: 1 
-                        };
-                        const items = [...(m.items || []), newItem];
-                        this.updateMemo({ items }); 
+                        this.updateMemo({ items: [...(m.items || []), { name: item.name, variant: sZ, color: sC, price: item.price, qty: 1 }] });
                         this.closePicker();
                     };
                 });
@@ -749,33 +676,26 @@
             parseOrder(val) {
                 if (!val || !activeDocId) return;
                 const lines = val.split('\n').filter(l => l.trim());
-                const phoneMatch = val.match(/01[3-9]\d{8}/);
-                const phone = phoneMatch ? phoneMatch[0] : "";
+                const phone = (val.match(/01[3-9]\d{8}/) || [""])[0];
                 if (lines.length > 0) {
                     const name = lines[0].toUpperCase();
                     const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
                     this.updateMemo({ name, phone, addr });
-                    setTimeout(() => { document.getElementById('quick-parse').value = ''; }, 1500);
+                    setTimeout(() => { document.getElementById('quick-parse').value = ''; }, 1000);
                 }
             },
 
-            exportCSV(provider) {
-                if (memos.length === 0) return;
-                let headers = [], csvData = [];
-                if (provider === 'steadfast') {
-                    headers = ["Invoice","Name","Contact","Address","Amount","Note"];
-                    csvData = memos.map(m => [m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.instructions]);
-                } else if (provider === 'pathao') {
-                    headers = ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"];
-                    csvData = memos.map(m => ["ONEN STUDIO", m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), m.tag, (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.instructions]);
-                } else if (provider === 'carrybee') {
-                    headers = ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
-                    csvData = memos.map(m => [m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.id, m.instructions]);
-                }
-                const csvContent = [headers.join(','), ...csvData.map(r => r.join(','))].join('\n');
-                const blob = new Blob([csvContent], { type: 'text/csv' });
+            exportCSV(p) {
+                if (!memos.length) return;
+                const heads = p === 'steadfast' ? ["Invoice","Name","Contact","Address","Amount","Note"] : p === 'pathao' ? ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Amount","Note"] : ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
+                const rows = memos.map(m => {
+                    const total = (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship;
+                    return p === 'steadfast' ? [m.id, m.name, m.phone, m.addr, total, m.instructions] : p === 'pathao' ? ["ONEN STUDIO", m.id, m.name, m.phone, m.addr, m.tag, total, m.instructions] : [m.name, m.phone, m.addr, total, m.id, m.instructions];
+                });
+                const content = [heads.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+                const blob = new Blob([content], { type: 'text/csv' });
                 const a = document.createElement('a'); a.href = window.URL.createObjectURL(blob);
-                a.download = `ONEN_${provider}_${Date.now()}.csv`; a.click();
+                a.download = `ONEN_${p}.csv`; a.click();
             }
         };
 
