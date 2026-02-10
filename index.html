@@ -350,18 +350,12 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyCouZxxbS2jqE6SiNRct4p0G3NxYGChDrw",
-            authDomain: "onen-logistics.firebaseapp.com",
-            projectId: "onen-logistics",
-            storageBucket: "onen-logistics.firebasestorage.app",
-            messagingSenderId: "1032584271169",
-            appId: "1:1032584271169:web:fd0f0a0a43e2b7a4f77dc0"
-        };
-
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        
+        // Use the default provided appId strictly
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
 
         let memos = [];
@@ -381,11 +375,11 @@
                         this.setupListeners();
                     } else {
                         currentUser = null;
-                        this.updateSyncStatus('offline', 'Auth Failed');
+                        this.updateSyncStatus('offline', 'Authenticating...');
                     }
                 });
 
-                // Authenticate FIRST before anything else
+                // Authenticate FIRST
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -393,7 +387,7 @@
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    console.error("Auth Exception", e);
+                    console.error("Auth Failure", e);
                 }
 
                 this.bindEvents();
@@ -409,7 +403,7 @@
             setupListeners() {
                 if(!currentUser) return;
 
-                // Memos Listener
+                // Memos Listener - Using exact path Rule 1
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), 
                     (snap) => {
                         const data = [];
@@ -418,17 +412,17 @@
                         if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                         this.renderMemos();
                     },
-                    (err) => console.error("Memo Load Error", err)
+                    (err) => console.error("Memo Error:", err)
                 );
 
-                // Inventory Listener
+                // Inventory Listener - Using exact path Rule 1
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), 
                     (snap) => {
                         inventory = [];
                         snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
                         this.renderInventoryTable();
                     },
-                    (err) => console.error("Inventory Load Error", err)
+                    (err) => console.error("Inventory Error:", err)
                 );
             },
 
@@ -457,9 +451,9 @@
             },
 
             async saveInventoryItem() {
-                // GUARD: Must be authenticated
-                if(!auth.currentUser) {
-                    alert("System not authenticated yet. Please wait a second.");
+                // Check auth
+                if (!auth.currentUser) {
+                    alert("Awaiting session... please try again in 2 seconds.");
                     return;
                 }
 
@@ -473,7 +467,7 @@
                 const price = parseInt(priceEl.value);
                 
                 if (!name || isNaN(price)) {
-                    alert("Please enter a valid product name and price.");
+                    alert("Name and price are required.");
                     return;
                 }
 
@@ -481,12 +475,13 @@
                 const colors = colorsEl.value.split(',').map(v => v.trim()).filter(v => v);
 
                 btn.disabled = true;
-                btn.innerText = "SAVING TO CLOUD...";
+                btn.innerText = "WRITING TO DATABASE...";
 
-                const itemId = crypto.randomUUID();
-                
                 try {
-                    // Explicit path following Rule 1
+                    // Item ID
+                    const itemId = Date.now().toString();
+                    
+                    // Mandatory Path Format: /artifacts/{appId}/public/data/{collection}
                     const productDoc = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
                     
                     await setDoc(productDoc, {
@@ -495,36 +490,41 @@
                         variants: variants,
                         colors: colors,
                         createdAt: Date.now(),
-                        createdBy: auth.currentUser.uid
+                        owner: auth.currentUser.uid
                     });
                     
-                    // Clear fields
                     nameEl.value = '';
                     priceEl.value = '';
                     varsEl.value = '';
                     colorsEl.value = '';
                     
-                    btn.innerText = "SUCCESS!";
+                    btn.innerText = "SAVED!";
                     setTimeout(() => {
                         btn.disabled = false;
                         btn.innerText = "Save to Catalog";
                     }, 1000);
 
                 } catch (e) {
-                    console.error("Firestore Save Error:", e);
-                    alert("Failed to save: " + e.message);
-                    btn.disabled = false;
-                    btn.innerText = "Save to Catalog";
+                    console.error("Save Error:", e);
+                    // Handle common permission race condition
+                    if (e.code === 'permission-denied') {
+                        btn.innerText = "RETRIEVING ACCESS...";
+                        setTimeout(() => this.saveInventoryItem(), 1500);
+                    } else {
+                        alert("Storage Error: " + e.message);
+                        btn.disabled = false;
+                        btn.innerText = "Save to Catalog";
+                    }
                 }
             },
 
             async deleteInventoryItem(id) {
                 if(!auth.currentUser) return;
-                if(confirm("Remove from catalog?")) {
+                if(confirm("Permanently remove product?")) {
                     try {
                         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
                     } catch (e) {
-                        alert("Delete failed: " + e.message);
+                        alert("Delete failed.");
                     }
                 }
             },
@@ -543,7 +543,7 @@
                             </button>
                         </td>
                     </tr>
-                `).join('') : '<tr><td colspan="5" class="py-10 text-center opacity-20 uppercase font-black tracking-widest text-[10px]">No items in catalog</td></tr>';
+                `).join('') : '<tr><td colspan="5" class="py-10 text-center opacity-20 uppercase font-black tracking-widest text-[10px]">Catalog is empty</td></tr>';
                 
                 window.deleteInvItem = (id) => this.deleteInventoryItem(id);
             },
@@ -557,11 +557,12 @@
             async createNewMemo() {
                 if(!auth.currentUser) return;
                 const id = '#' + Math.floor(1000 + Math.random() * 9000);
-                const docId = crypto.randomUUID();
+                const docId = Date.now().toString();
                 const memo = {
                     id, date: new Date().toLocaleDateString('en-GB'),
                     name: '', phone: '', addr: '', instructions: '', ship: 60, tag: 'DHAKA',
-                    status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now()
+                    status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now(),
+                    owner: auth.currentUser.uid
                 };
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
                 activeDocId = docId;
@@ -700,7 +701,6 @@
                     </div>
                 `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs text-white">No products in catalog. Click the cog to add items.</div>';
 
-                // Handle sub-selection within picker
                 inventory.forEach(item => {
                     const container = document.getElementById(`picker-item-${item.id}`);
                     if(!container) return;
@@ -726,7 +726,7 @@
 
                     container.querySelector('.btn-add-final').onclick = () => {
                         if(!selectedSize || !selectedColor) {
-                            alert("Please select both size and color.");
+                            alert("Select size and color.");
                             return;
                         }
                         const m = memos.find(m => m.docId === activeDocId);
