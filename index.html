@@ -152,8 +152,8 @@
     <template id="memo-tpl">
         <div class="memo-card group">
             <div class="flex justify-between border-b-[6px] border-black pb-4 mb-8">
-                <h1 class="text-6xl font-black italic tracking-tighter">ONEN</h1>
-                <div class="text-right flex flex-col justify-end">
+                <h1 class="text-6xl font-black italic tracking-tighter text-black">ONEN</h1>
+                <div class="text-right flex flex-col justify-end text-black">
                     <div class="text-4xl font-black m-id tracking-tighter">#0000</div>
                     <div class="text-[9px] font-black opacity-40 m-date uppercase tracking-widest mt-1"></div>
                 </div>
@@ -166,12 +166,12 @@
                     <textarea class="m-addr w-full border-none text-[12px] h-12 p-0 focus:ring-0 resize-none font-medium bg-transparent text-black" placeholder="ADDRESS"></textarea>
                 </div>
                 <div class="text-right">
-                    <span class="m-tag border-[3px] border-black px-6 py-2 text-[11px] font-black italic tracking-widest inline-block uppercase">DHAKA</span>
+                    <span class="m-tag border-[3px] border-black px-6 py-2 text-[11px] font-black italic tracking-widest inline-block uppercase text-black">DHAKA</span>
                 </div>
             </div>
 
             <div class="flex-grow">
-                <table class="w-full text-[13px]">
+                <table class="w-full text-[13px] text-black">
                     <thead>
                         <tr class="border-b-2 border-black text-left">
                             <th class="pb-2 uppercase tracking-widest text-[10px] font-black">Description</th>
@@ -181,12 +181,12 @@
                     </thead>
                     <tbody class="m-rows font-bold"></tbody>
                 </table>
-                <button class="add-item-btn no-print mt-4 text-[9px] font-black uppercase tracking-widest opacity-20 hover:opacity-100 transition-opacity">
+                <button class="add-item-btn no-print mt-4 text-[9px] font-black uppercase tracking-widest opacity-20 hover:opacity-100 transition-opacity text-black">
                     + Add Product Line
                 </button>
             </div>
 
-            <div class="mt-8 border-t-2 border-black pt-6 flex justify-between items-end">
+            <div class="mt-8 border-t-2 border-black pt-6 flex justify-between items-end text-black">
                 <div class="text-[8px] font-bold opacity-40 uppercase">7-Day Exchange | OneN Studio | Dhaka</div>
                 <div class="text-right w-64">
                     <div class="flex justify-between text-[11px] font-bold mb-2"><span class="opacity-40 uppercase">Delivery</span><span class="m-ship-val">0</span></div>
@@ -208,13 +208,8 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // CONFIG: Mandatory use of const apiKey = ""
-        const rawConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const firebaseConfig = {
-            ...rawConfig,
-            apiKey: "" 
-        };
-
+        // GLOBAL CONFIGURATION
+        const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -226,8 +221,9 @@
 
         const Core = {
             async start() {
-                this.updateSync('syncing', 'Authenticating...');
+                this.updateSync('syncing', 'Security Handshake...');
                 
+                // MANDATORY RULE 3: Auth before Queries
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -236,7 +232,8 @@
                             await signInAnonymously(auth);
                         }
                     } catch (e) {
-                        this.updateSync('offline', 'Security Error');
+                        console.error("Auth Failure:", e);
+                        this.updateSync('offline', 'Auth Failed');
                     }
                 };
 
@@ -250,9 +247,12 @@
                     }
                 });
 
+                // Fail-safe
                 setTimeout(() => {
                     if (!currentUser) document.getElementById('btn-retry-auth').classList.remove('hidden');
-                }, 8000);
+                }, 10000);
+                
+                document.getElementById('btn-retry-auth').onclick = () => location.reload();
             },
 
             updateSync(state, label) {
@@ -271,6 +271,7 @@
 
             initSync() {
                 if (!currentUser) return;
+                // MANDATORY RULE 1: Strict Paths
                 const memoRef = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 
                 onSnapshot(memoRef, (snap) => {
@@ -281,7 +282,8 @@
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.render();
                 }, (err) => {
-                    this.updateSync('offline', 'Sync Denied');
+                    console.error("Sync Error:", err);
+                    this.updateSync('offline', 'Access Denied');
                 });
             },
 
@@ -294,6 +296,7 @@
                     name: '', phone: '', addr: '', ship: 60, tag: 'DHAKA',
                     status: 'PENDING', items: [{ desc: 'Product Item', qty: 1, price: 0 }], createdAt: Date.now()
                 };
+                // MANDATORY RULE 1: Strict Paths
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), newDoc);
                 activeDocId = id;
             },
@@ -305,7 +308,7 @@
                 history.innerHTML = '';
 
                 if (memos.length === 0) {
-                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">Terminal Ready. Initialize Dispatch.</div>`;
+                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">No active shipments found.</div>`;
                     return;
                 }
 
@@ -328,11 +331,11 @@
 
                     const memoRefDoc = doc(db, 'artifacts', appId, 'public', 'data', 'memos', m.docId);
 
+                    // Event listeners with debounce or simple update
                     card.querySelector('.m-name').onchange = (e) => updateDoc(memoRefDoc, { name: e.target.value.toUpperCase() });
                     card.querySelector('.m-phone').onchange = (e) => updateDoc(memoRefDoc, { phone: e.target.value });
                     card.querySelector('.m-addr').onchange = (e) => updateDoc(memoRefDoc, { addr: e.target.value });
 
-                    // LINE ITEMS RENDER
                     const tbody = card.querySelector('.m-rows');
                     let subtotal = 0;
                     (m.items || []).forEach((item, idx) => {
@@ -364,7 +367,7 @@
                         updateDoc(memoRefDoc, { items: newItems });
                     };
 
-                    card.onclick = () => { activeDocId = m.docId; this.render(); };
+                    card.onclick = () => { if(activeDocId !== m.docId) { activeDocId = m.docId; this.render(); } };
                     card.querySelector('.m-delete-btn').onclick = async (e) => { 
                         e.stopPropagation(); 
                         await deleteDoc(memoRefDoc);
@@ -372,9 +375,16 @@
 
                     workspace.appendChild(card);
 
+                    // History Item
                     const hi = document.createElement('div');
                     hi.className = `p-3 glass cursor-pointer transition-all border-l-4 ${isActive ? 'border-amber-500 bg-white/5 opacity-100' : 'border-transparent opacity-40'}`;
-                    hi.innerHTML = `<div class="text-[9px] font-black truncate">${m.name || 'NEW ENTRY'}</div><div class="text-[7px] opacity-50 flex justify-between"><span>${m.id}</span><span>৳${(subtotal + parseInt(m.ship)).toLocaleString()}</span></div>`;
+                    hi.innerHTML = `
+                        <div class="text-[9px] font-black truncate">${m.name || 'NEW ENTRY'}</div>
+                        <div class="text-[7px] opacity-50 flex justify-between">
+                            <span>${m.id}</span>
+                            <span>৳${(subtotal + parseInt(m.ship)).toLocaleString()}</span>
+                        </div>
+                    `;
                     hi.onclick = () => { activeDocId = m.docId; this.render(); };
                     history.appendChild(hi);
                 });
@@ -387,6 +397,7 @@
             }
         };
 
+        // Actions
         document.getElementById('btn-new-memo').onclick = () => Core.createMemo();
         
         document.querySelectorAll('[data-action]').forEach(btn => {
