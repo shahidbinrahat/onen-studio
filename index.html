@@ -35,11 +35,20 @@
         }
 
         .memo-card { 
-            width: 210mm; height: 148.5mm; background: white; color: black; 
-            margin: 0 auto 100px auto; display: flex; flex-direction: column; padding: 12mm 14mm;
-            position: relative; transition: all 0.4s var(--apple-curve); 
-            transform: scale(0.98); opacity: 0.3;
-            box-sizing: border-box; overflow: hidden; border-radius: 8px;
+            width: 210mm; 
+            min-height: 148.5mm; 
+            background: white; 
+            color: black; 
+            margin: 0 auto 100px auto; 
+            display: flex; 
+            flex-direction: column; 
+            padding: 12mm 14mm;
+            position: relative; 
+            transition: all 0.4s var(--apple-curve); 
+            transform: scale(0.98); 
+            opacity: 0.3;
+            box-sizing: border-box; 
+            border-radius: 8px;
             filter: blur(2px);
         }
 
@@ -91,12 +100,12 @@
             .memo-card { 
                 opacity: 1!important; 
                 transform: scale(1)!important; 
-                margin: 0 auto 20mm auto !important; 
+                margin: 0 auto 0 auto !important; 
                 box-shadow: none!important; 
                 page-break-after: always; 
                 filter: none!important; 
                 display: flex !important;
-                border: 1px solid #eee;
+                border: none;
             } 
         }
     </style>
@@ -192,9 +201,8 @@
                 <div class="flex items-center gap-6">
                     <div>
                         <h3 class="text-3xl font-black uppercase tracking-tighter text-white">Select Product</h3>
-                        <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Available in Stock</p>
+                        <p class="text-[10px] opacity-40 font-bold uppercase tracking-widest mt-1">Pick item & size to add</p>
                     </div>
-                    <!-- The Requested Cog Icon -->
                     <button id="btn-manage-inventory-cog" class="w-10 h-10 rounded-full border border-white/10 flex items-center justify-center text-white/40 hover:text-amber-500 hover:border-amber-500/50 transition-all">
                         <i class="fa-solid fa-cog"></i>
                     </button>
@@ -205,13 +213,13 @@
         </div>
     </div>
 
-    <!-- Inventory Management Modal (Secondary) -->
+    <!-- Inventory Management Modal -->
     <div id="inventory-modal" class="fixed inset-0 bg-black/98 backdrop-blur-2xl hidden items-center justify-center z-[120] p-10 no-print">
         <div class="bg-[#050505] border border-white/10 p-12 rounded-[2rem] w-full max-w-5xl h-[85vh] flex flex-col">
             <div class="flex justify-between items-start mb-12">
                 <div>
                     <h2 class="text-4xl font-black italic tracking-tighter text-amber-500">INVENTORY MANAGER</h2>
-                    <p class="text-[10px] font-bold opacity-40 uppercase tracking-[0.4em] mt-2">Cloud Synced Studio Products</p>
+                    <p class="text-[10px] font-bold opacity-40 uppercase tracking-[0.4em] mt-2">Manage Your Product Catalog</p>
                 </div>
                 <button id="btn-close-inventory" class="text-white opacity-20 hover:opacity-100 text-5xl">&times;</button>
             </div>
@@ -226,10 +234,10 @@
                     <input id="inv-price" type="number" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Price">
                 </div>
                 <div class="space-y-2">
-                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Variants (Split by comma)</label>
-                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="Black/M, Black/L">
+                    <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Sizes (S, M, L...)</label>
+                    <input id="inv-vars" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500" placeholder="S, M, L, XL">
                 </div>
-                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-3 hover:scale-[1.01] transition-all">Add Product to Catalog</button>
+                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-3 hover:scale-[1.01] transition-all">Save to Catalog</button>
             </div>
 
             <div class="flex-grow overflow-y-auto custom-scroll pr-4">
@@ -238,7 +246,7 @@
                         <tr>
                             <th class="pb-4">Product</th>
                             <th class="pb-4">Price</th>
-                            <th class="pb-4">Variants</th>
+                            <th class="pb-4">Available Sizes</th>
                             <th class="pb-4 text-right">Actions</th>
                         </tr>
                     </thead>
@@ -276,13 +284,13 @@
                 </div>
             </div>
 
-            <div class="flex-grow overflow-hidden">
+            <div class="flex-grow">
                 <table class="w-full text-[13px]">
                     <thead class="border-b-2 border-black font-black text-[9px] uppercase text-left">
                         <tr>
                             <th class="pb-3 w-8">#</th>
                             <th class="pb-3">DESCRIPTION</th>
-                            <th class="pb-3 text-center">VARIANT</th>
+                            <th class="pb-3 text-center">SIZE</th>
                             <th class="pb-3 text-center w-12">QTY</th>
                             <th class="pb-3 text-right w-24">PRICE</th>
                             <th class="pb-3 w-8 no-print"></th>
@@ -292,7 +300,7 @@
                 </table>
             </div>
 
-            <div class="mt-4 pt-4 border-t border-black/5">
+            <div class="mt-6 pt-4 border-t border-black/5">
                 <label class="text-[8px] font-black uppercase opacity-40 tracking-widest mb-1 block">Special Instructions</label>
                 <textarea class="m-instructions w-full border-none text-[10px] p-0 focus:ring-0 resize-none font-bold bg-transparent h-10 text-black" placeholder="E.g. Call before delivery..."></textarea>
             </div>
@@ -341,7 +349,6 @@
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
 
-        let currentUser = null;
         let memos = [];
         let inventory = [];
         let activeDocId = null;
@@ -351,7 +358,6 @@
                 this.updateSyncStatus('offline', 'Connecting...');
                 
                 onAuthStateChanged(auth, (user) => {
-                    currentUser = user;
                     if (user) {
                         this.updateSyncStatus('online', 'Live');
                         this.setupListeners();
@@ -381,29 +387,25 @@
                     memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.renderMemos();
-                });
+                }, (err) => console.error(err));
 
                 onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), (snap) => {
                     inventory = [];
                     snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
                     this.renderInventoryTable();
-                    // If picker is open, re-render the grid
                     if(!document.getElementById('picker-modal').classList.contains('hidden')) {
                         this.openPicker();
                     }
-                });
+                }, (err) => console.error(err));
             },
 
             bindEvents() {
                 document.getElementById('btn-new-memo').onclick = () => this.createNewMemo();
                 document.getElementById('btn-open-picker').onclick = () => this.openPicker();
                 document.getElementById('btn-close-picker').onclick = () => this.closePicker();
-                
-                // Inventory via Cog
                 document.getElementById('btn-manage-inventory-cog').onclick = () => this.toggleInventoryModal(true);
                 document.getElementById('btn-close-inventory').onclick = () => this.toggleInventoryModal(false);
                 document.getElementById('btn-save-inv').onclick = () => this.saveInventoryItem();
-                
                 document.getElementById('quick-parse').oninput = (e) => this.parseOrder(e.target.value);
 
                 document.querySelectorAll('[data-action]').forEach(btn => {
@@ -421,17 +423,17 @@
                 document.getElementById('btn-export-carrybee').onclick = () => this.exportCSV('carrybee');
             },
 
-            // --- INVENTORY LOGIC ---
             async saveInventoryItem() {
                 const name = document.getElementById('inv-name').value.trim();
                 const price = parseInt(document.getElementById('inv-price').value);
-                const vars = document.getElementById('inv-vars').value.split(',').map(v => v.trim()).filter(v => v);
+                const varsInput = document.getElementById('inv-vars').value;
+                const variants = varsInput.split(',').map(v => v.trim()).filter(v => v);
 
-                if (!name || !price) return;
+                if (!name || isNaN(price)) return;
 
-                const docId = crypto.randomUUID();
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', docId), {
-                    name, price, variants: vars, createdAt: Date.now()
+                const itemId = crypto.randomUUID();
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
+                    name, price, variants, createdAt: Date.now()
                 });
 
                 document.getElementById('inv-name').value = '';
@@ -451,7 +453,7 @@
                     <tr class="border-b border-white/5 group">
                         <td class="py-4 uppercase text-white">${item.name}</td>
                         <td class="py-4 text-amber-500">৳${item.price.toLocaleString()}</td>
-                        <td class="py-4 opacity-50">${item.variants.join(' • ')}</td>
+                        <td class="py-4 opacity-50">${(item.variants || []).join(' • ')}</td>
                         <td class="py-4 text-right">
                             <button onclick="window.deleteInvItem('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors">
                                 <i class="fa-solid fa-trash-can"></i>
@@ -468,7 +470,6 @@
                 modal.classList.toggle('flex', show);
             },
 
-            // --- MEMO LOGIC ---
             async createNewMemo() {
                 const id = '#' + Math.floor(1000 + Math.random() * 9000);
                 const docId = crypto.randomUUID();
@@ -514,14 +515,14 @@
 
                     let subtotal = 0;
                     const rows = card.querySelector('.m-rows');
-                    m.items.forEach((item, idx) => {
+                    (m.items || []).forEach((item, idx) => {
                         subtotal += (item.price * item.qty);
                         const tr = document.createElement('tr');
                         tr.className = "border-b border-black/5";
                         tr.innerHTML = `
                             <td class="py-3 opacity-20">${idx+1}</td>
-                            <td class="py-3 uppercase">${item.name}</td>
-                            <td class="text-center">${item.variant}</td>
+                            <td class="py-3 uppercase text-[11px]">${item.name}</td>
+                            <td class="text-center text-[11px]">${item.variant || 'N/A'}</td>
                             <td class="text-center font-black">
                                 <div class="flex items-center justify-center gap-2 no-print">
                                     <button class="q-dec opacity-30 hover:opacity-100 text-lg">×</button>
@@ -530,7 +531,7 @@
                                 </div>
                                 <span class="hidden print:inline">${item.qty}</span>
                             </td>
-                            <td class="text-right">${(item.price * item.qty).toLocaleString()}</td>
+                            <td class="text-right text-[12px]">${(item.price * item.qty).toLocaleString()}</td>
                             <td class="no-print text-right"><span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span></td>
                         `;
                         tr.querySelector('.q-inc').onclick = () => { m.items[idx].qty++; this.updateMemo({ items: m.items }, m.docId); };
@@ -584,16 +585,29 @@
                             <span class="text-amber-500 font-bold">৳${item.price.toLocaleString()}</span>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            ${item.variants.map(v => `<button class="pill-btn hover:bg-white hover:text-black border-white/10 add-v-btn" data-name="${item.name}" data-var="${v}" data-price="${item.price}">${v}</button>`).join('')}
+                            ${(item.variants || ['Universal']).map(v => `
+                                <button class="pill-btn hover:bg-white hover:text-black border-white/10 add-v-btn" 
+                                        data-name="${item.name}" 
+                                        data-var="${v}" 
+                                        data-price="${item.price}">
+                                    ${v}
+                                </button>`).join('')}
                         </div>
                     </div>
-                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs">No products in catalog. Click the cog to add some.</div>';
+                `).join('') : '<div class="col-span-2 text-center py-20 opacity-20 font-black uppercase tracking-widest text-xs">No products in catalog. Click the cog to add items.</div>';
 
                 grid.querySelectorAll('.add-v-btn').forEach(btn => {
                     btn.onclick = () => {
                         const m = memos.find(m => m.docId === activeDocId);
-                        const items = [...(m.items || []), { name: btn.dataset.name, variant: btn.dataset.var, price: parseInt(btn.dataset.price), qty: 1 }];
-                        this.updateMemo({ items }); this.closePicker();
+                        const newItem = { 
+                            name: btn.dataset.name, 
+                            variant: btn.dataset.var, 
+                            price: parseInt(btn.dataset.price), 
+                            qty: 1 
+                        };
+                        const items = [...(m.items || []), newItem];
+                        this.updateMemo({ items }); 
+                        this.closePicker();
                     };
                 });
             },
