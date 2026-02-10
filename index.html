@@ -7,7 +7,644 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src=<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ONEN STUDIO | Logistics & Stocks Engine</title>
+    
+    <!-- Dependencies -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        
+        :root { 
+            --accent: #F59E0B; 
+            --apple-curve: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: #000; 
+            color: white; 
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .glass { 
+            background: rgba(255,255,255,0.02); 
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.08); 
+            border-radius: 14px; 
+            transition: all 0.3s var(--apple-curve); 
+        }
+
+        .memo-card { 
+            width: 210mm; height: 148.5mm; background: white; color: black; 
+            margin: 0 auto 100px auto; display: flex; flex-direction: column; padding: 12mm 14mm;
+            position: relative; transition: all 0.6s var(--apple-curve); 
+            transform: scale(0.95); opacity: 0.2;
+            box-sizing: border-box; overflow: hidden; border-radius: 8px;
+            filter: blur(4px);
+        }
+
+        .memo-card.active { 
+            transform: scale(1); opacity: 1; filter: blur(0);
+            box-shadow: 0 40px 80px -15px rgba(0,0,0,0.8); 
+        }
+
+        .pill-btn {
+            padding: 8px 16px;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 99px;
+            transition: all 0.2s;
+        }
+        .pill-btn.active-state { background: white; color: black; border-color: white; }
+        
+        .st-pending { color: #64748b; border-color: #cbd5e1; }
+        .st-unpaid { color: #d97706; border-color: #fcd34d; }
+        .st-paid { color: #059669; border-color: #6ee7b7; }
+        .st-exchange { color: #7c3aed; border-color: #c4b5fd; }
+        .st-returned { color: #dc2626; border-color: #fca5a5; }
+
+        .type-pill { background: #000; color: #fff; padding: 4px 12px; font-size: 10px; font-weight: 900; }
+        .type-pill.exchange { background: #F59E0B; color: #000; }
+
+        .row-remove-btn { 
+            opacity: 0; 
+            transition: opacity 0.2s; 
+            color: #ef4444; 
+            cursor: pointer;
+            padding: 4px;
+        }
+        tr:hover .row-remove-btn { opacity: 1; }
+
+        .custom-scroll::-webkit-scrollbar { width: 3px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
+
+        /* STOCK MODAL SPECIFIC STYLES */
+        .input-glass {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            transition: all 0.3s var(--apple-curve);
+        }
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        @media print { 
+            .no-print { display: none !important; } 
+            body { background: white; height: auto; overflow: visible; }
+            .memo-card { opacity: 1!important; transform: scale(1)!important; margin: 0!important; box-shadow: none!important; page-break-after: always; filter: none!important; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="flex h-screen overflow-hidden no-print">
+        <!-- Sidebar Navigation -->
+        <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-8 custom-scroll overflow-y-auto">
+            <div class="text-amber-500 font-black italic text-3xl mb-4 tracking-tighter">ONEN STUDIO.</div>
+            
+            <button onclick="Core.createNewMemo()" class="w-full bg-white text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-all">Create New Memo</button>
+
+            <!-- STOCK TOGGLE BUTTON -->
+            <button onclick="StockEngine.open()" class="w-full glass border-amber-500/30 text-amber-500 py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all">
+                <i class="fa-solid fa-box-open mr-2"></i> Inventory Stock
+            </button>
+
+            <!-- Order Status Logic -->
+            <div class="space-y-4">
+                <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Lifecycle Status</label>
+                <div class="flex flex-wrap gap-2" id="status-toggles">
+                    <button onclick="Core.setLifecycle('PENDING')" class="pill-btn active-state" data-state="PENDING">Pending</button>
+                    <button onclick="Core.setLifecycle('UNPAID')" class="pill-btn" data-state="UNPAID">Unpaid</button>
+                    <button onclick="Core.setLifecycle('PAID')" class="pill-btn" data-state="PAID">Paid</button>
+                    <button onclick="Core.setLifecycle('EXCHANGE')" class="pill-btn" data-state="EXCHANGE">Exchange</button>
+                    <button onclick="Core.setLifecycle('RETURNED')" class="pill-btn" data-state="RETURNED">Returned</button>
+                </div>
+            </div>
+
+            <!-- Parcel Type Logic -->
+            <div class="space-y-4">
+                <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Parcel Type</label>
+                <div class="flex gap-2">
+                    <button onclick="Core.setType('REGULAR')" class="pill-btn flex-1 active-state" data-type="REGULAR">Regular</button>
+                    <button onclick="Core.setType('EXCHANGE')" class="pill-btn flex-1" data-type="EXCHANGE">Exchange</button>
+                </div>
+            </div>
+
+            <!-- Shipping Tiers -->
+            <div class="space-y-4">
+                <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em]">Shipping Zone</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="Core.setShip(60, 'DHAKA')" class="pill-btn">Dhaka (60)</button>
+                    <button onclick="Core.setShip(100, 'SUB-URBAN')" class="pill-btn">Suburban (100)</button>
+                    <button onclick="Core.setShip(120, 'OUTSIDE')" class="pill-btn col-span-2">Outside Dhaka (120)</button>
+                </div>
+            </div>
+
+            <div class="border-t border-white/5 pt-6">
+                <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em] mb-4 block">Bulk Actions</label>
+                <div class="grid grid-cols-1 gap-2">
+                    <button onclick="Logistics.export('steadfast')" class="glass p-3 text-[9px] font-bold text-left hover:border-amber-500 flex justify-between items-center">
+                        Steadfast Export <i class="fa-solid fa-file-csv opacity-30"></i>
+                    </button>
+                    <button onclick="Logistics.export('pathao')" class="glass p-3 text-[9px] font-bold text-left hover:border-amber-500 flex justify-between items-center">
+                        Pathao Export <i class="fa-solid fa-file-csv opacity-30"></i>
+                    </button>
+                    <button onclick="Logistics.export('paperfly')" class="glass p-3 text-[9px] font-bold text-left hover:border-amber-500 flex justify-between items-center">
+                        Paperfly Export <i class="fa-solid fa-file-csv opacity-30"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-auto pt-6 border-t border-white/5">
+                <label class="text-[9px] uppercase font-black opacity-30 tracking-[0.3em] mb-4 block">History</label>
+                <div id="history-list" class="space-y-2"></div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-grow bg-[#0a0a0a] overflow-y-auto p-12 relative no-scrollbar">
+            <div id="workspace" class="max-w-4xl mx-auto pb-48"></div>
+
+            <!-- Bottom Floating Bar -->
+            <div class="fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/5 backdrop-blur-3xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl z-50">
+                <textarea id="quick-parse" oninput="Core.parse()" class="bg-transparent border-none text-[10px] w-64 h-10 resize-none outline-none placeholder:opacity-20" placeholder="Paste order details to auto-fill..."></textarea>
+                <div class="h-8 w-px bg-white/10"></div>
+                <button onclick="Inventory.openPicker()" class="text-[10px] font-black uppercase tracking-widest px-4 hover:text-amber-500 transition-all">Add Item</button>
+                <button onclick="window.print()" class="bg-white text-black px-10 py-3 rounded-xl text-[10px] font-black uppercase hover:scale-105 transition-all">Print Active</button>
+            </div>
+        </main>
+    </div>
+
+    <!-- STOCK MODAL (SEPARATE WINDOW) -->
+    <div id="stock-modal" class="fixed inset-0 bg-[#050505] hidden z-[200] overflow-y-auto custom-scroll">
+        <header class="max-w-[1400px] mx-auto p-10 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-black italic tracking-tighter">ONEN <span class="text-amber-500">STOCKS</span></h1>
+                <p class="text-[9px] font-bold opacity-20 uppercase tracking-[0.3em] mt-1">Live Inventory Management</p>
+            </div>
+            <button onclick="StockEngine.close()" class="glass px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-black transition-all">
+                <i class="fa-solid fa-xmark mr-2"></i> Close Console
+            </button>
+        </header>
+
+        <main class="max-w-[1400px] mx-auto px-10 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
+            <!-- Stock Stats -->
+            <div class="lg:col-span-4 space-y-6">
+                <div class="glass p-8 rounded-[2rem]">
+                    <h2 class="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-6">Master Sync</h2>
+                    <form id="stock-form" class="space-y-4">
+                        <input type="text" id="itemName" required class="input-glass w-full p-5 text-xs font-bold" placeholder="Item Identifier (e.g. Tee-Black-M)">
+                        <div class="grid grid-cols-2 gap-4">
+                            <input type="number" id="itemQty" required class="input-glass w-full p-5 text-xs" placeholder="Quantity">
+                            <button type="submit" class="bg-white text-black rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-all">Add Stock</button>
+                        </div>
+                    </form>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="glass p-6 rounded-[1.5rem]">
+                        <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">SKU Count</p>
+                        <p id="stat-sku" class="text-3xl font-black italic">0</p>
+                    </div>
+                    <div class="glass p-6 rounded-[1.5rem]">
+                        <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Total Units</p>
+                        <p id="stat-items" class="text-3xl font-black italic text-amber-500">0</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock List -->
+            <div class="lg:col-span-8">
+                <div class="glass p-8 rounded-[2rem] min-h-[600px]">
+                    <div class="flex justify-between items-center mb-8">
+                        <h2 class="text-[10px] font-black uppercase tracking-[0.2em] opacity-30">Active Inventory Pool</h2>
+                        <div id="stock-uplink" class="text-[8px] font-bold text-green-500 uppercase flex items-center gap-2">
+                             <div class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div> Linked
+                        </div>
+                    </div>
+                    <div id="stock-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Stock cards injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Product Picker -->
+    <div id="picker-modal" class="fixed inset-0 bg-black/90 backdrop-blur-xl hidden items-center justify-center z-[100] p-10 no-print">
+        <div class="bg-[#111] border border-white/10 p-12 rounded-[2rem] w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="flex justify-between items-center mb-10">
+                <h3 class="text-3xl font-black uppercase tracking-tighter">Inventory Picker</h3>
+                <button onclick="Inventory.closePicker()" class="opacity-30 hover:opacity-100 text-2xl">&times;</button>
+            </div>
+            <div class="grid grid-cols-2 gap-4 overflow-y-auto custom-scroll pr-4" id="picker-grid"></div>
+        </div>
+    </div>
+
+    <!-- MEMO TEMPLATE -->
+    <template id="memo-tpl">
+        <div class="memo-card" onclick="Core.activate(this)">
+            <div class="flex justify-between border-b-[6px] border-black pb-4 mb-8">
+                <div>
+                    <h1 class="text-6xl font-black italic tracking-tighter">ONEN</h1>
+                    <div class="flex gap-2 items-center mt-2">
+                        <span class="m-status-tag font-black text-[9px] uppercase px-3 py-1 border-[2px] rounded-full">PENDING</span>
+                        <span class="m-type-tag font-black text-[9px] uppercase px-3 py-1 bg-black text-white rounded-full">REGULAR</span>
+                    </div>
+                </div>
+                <div class="text-right flex flex-col justify-end">
+                    <div class="text-4xl font-black m-id tracking-tighter">#0000</div>
+                    <div class="text-[9px] font-black opacity-40 m-date uppercase tracking-widest mt-1"></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-12 mb-6">
+                <div class="space-y-2">
+                    <input class="m-name w-full border-none font-black text-2xl p-0 focus:ring-0 uppercase bg-transparent" placeholder="RECIPIENT NAME">
+                    <input class="m-phone w-full border-none font-bold text-xl p-0 focus:ring-0 bg-transparent" placeholder="PHONE NUMBER">
+                    <textarea class="m-addr w-full border-none text-[12px] h-12 p-0 focus:ring-0 resize-none font-medium bg-transparent" placeholder="SHIPPING ADDRESS"></textarea>
+                </div>
+                <div class="text-right">
+                    <span class="m-tag border-[3px] border-black px-6 py-2 text-[11px] font-black italic tracking-widest inline-block">DHAKA</span>
+                </div>
+            </div>
+
+            <div class="flex-grow overflow-hidden">
+                <table class="w-full text-[13px]">
+                    <thead class="border-b-2 border-black font-black text-[9px] uppercase text-left">
+                        <tr>
+                            <th class="pb-3 w-8">#</th>
+                            <th class="pb-3">DESCRIPTION</th>
+                            <th class="pb-3 text-center">VARIANT</th>
+                            <th class="pb-3 text-center w-12">QTY</th>
+                            <th class="pb-3 text-right w-24">PRICE</th>
+                            <th class="pb-3 w-8 no-print"></th>
+                        </tr>
+                    </thead>
+                    <tbody class="m-rows font-bold"></tbody>
+                </table>
+            </div>
+
+            <div class="mt-4 pt-4 border-t border-black/5">
+                <label class="text-[8px] font-black uppercase opacity-40 tracking-widest mb-1 block">Special Instructions</label>
+                <textarea class="m-instructions w-full border-none text-[10px] p-0 focus:ring-0 resize-none font-bold bg-transparent h-10" placeholder="E.g. Call before delivery, handle with care..."></textarea>
+            </div>
+
+            <div class="mt-4 border-t-2 border-black pt-6 flex justify-between items-end">
+                <div class="text-[8px] font-bold opacity-40 leading-relaxed uppercase">
+                    <p>7-Day Exchange window valid from delivery date</p>
+                    <p>Items must be in original condition with all tags intact</p>
+                    <p class="mt-2 text-black opacity-100">THANK YOU FOR SHOPPING AT ONEN STUDIO</p>
+                </div>
+                <div class="text-right w-64">
+                    <div class="flex justify-between text-[11px] font-bold mb-2">
+                        <span class="opacity-40 uppercase">Delivery Charge</span>
+                        <span class="m-ship-val tracking-tight">0</span>
+                    </div>
+                    <div class="flex justify-between border-t-[3px] border-black pt-3 font-black">
+                        <span class="text-[12px] mt-2 uppercase italic">Grand Total</span>
+                        <div class="flex items-start">
+                            <span class="text-xl mt-1 mr-1">৳</span>
+                            <span class="text-5xl m-total tracking-tighter">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button onclick="Core.delete(event, this)" class="no-print absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"><i class="fa-solid fa-trash-can"></i></button>
+        </div>
+    </template>
+
+    <script>
+        const STORE_NAME = "ONEN STUDIO";
+        const firebaseConfig = {
+            apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM",
+            authDomain: "onen-studio.firebaseapp.com",
+            projectId: "onen-studio",
+            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
+
+        // STOCK ENGINE LOGIC (NEW)
+        const StockEngine = {
+            open() {
+                document.getElementById('stock-modal').classList.remove('hidden');
+                this.setupListeners();
+            },
+            close() {
+                document.getElementById('stock-modal').classList.add('hidden');
+            },
+            setupListeners() {
+                const stockForm = document.getElementById('stock-form');
+                const stockList = document.getElementById('stock-list');
+
+                // Stock Form Submission
+                stockForm.onsubmit = (e) => {
+                    e.preventDefault();
+                    const data = {
+                        name: document.getElementById('itemName').value,
+                        qty: parseInt(document.getElementById('itemQty').value),
+                        updatedAt: firebase.database.ServerValue.TIMESTAMP
+                    };
+                    db.ref('inventory_pool').push(data);
+                    stockForm.reset();
+                };
+
+                // Real-time Stock Updates
+                db.ref('inventory_pool').on('value', (snap) => {
+                    const data = snap.val();
+                    stockList.innerHTML = '';
+                    let totalQty = 0;
+                    let skuCount = 0;
+
+                    if (data) {
+                        Object.entries(data).reverse().forEach(([id, item]) => {
+                            totalQty += item.qty;
+                            skuCount++;
+                            const card = document.createElement('div');
+                            card.className = 'glass p-6 rounded-2xl flex justify-between items-center hover:bg-white/[0.04] transition-all';
+                            card.innerHTML = `
+                                <div>
+                                    <h3 class="text-xs font-black text-white uppercase tracking-tight">${item.name}</h3>
+                                    <p class="text-[8px] text-white/20 mt-1 font-bold">UID: ${id.slice(-6)}</p>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <button onclick="StockEngine.updateQty('${id}', -1)" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-xs">-</button>
+                                    <span class="text-lg font-black italic w-6 text-center">${item.qty}</span>
+                                    <button onclick="StockEngine.updateQty('${id}', 1)" class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-black text-xs">+</button>
+                                </div>
+                            `;
+                            stockList.appendChild(card);
+                        });
+                    }
+                    document.getElementById('stat-sku').innerText = skuCount;
+                    document.getElementById('stat-items').innerText = totalQty;
+                });
+            },
+            updateQty(id, delta) {
+                db.ref(`inventory_pool/${id}/qty`).transaction(c => (c || 0) + delta);
+            }
+        };
+
+        const Inventory = {
+            items: [
+                { id: 1, name: "Onyx Basic Tee", price: 1250, variants: ["Black/M", "Black/L", "Black/XL"] },
+                { id: 2, name: "Ghost Cargo Pants", price: 2850, variants: ["Grey/30", "Grey/32", "Grey/34"] },
+                { id: 3, name: "Neon Studio Hoodie", price: 3400, variants: ["Purple/L", "Purple/XL"] }
+            ],
+            openPicker() {
+                document.getElementById('picker-modal').classList.replace('hidden', 'flex');
+                document.getElementById('picker-grid').innerHTML = this.items.map(item => `
+                    <div class="glass p-8 flex flex-col gap-4">
+                        <div class="flex justify-between">
+                            <h4 class="font-black uppercase text-xl">${item.name}</h4>
+                            <span class="text-amber-500 font-black">${item.price}৳</span>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            ${item.variants.map(v => `<button onclick="Core.addItem('${item.name}', '${v}', ${item.price})" class="pill-btn hover:bg-white/10">${v}</button>`).join('')}
+                        </div>
+                    </div>
+                `).join('');
+            },
+            closePicker() { document.getElementById('picker-modal').classList.replace('flex', 'hidden'); }
+        };
+
+        const Core = {
+            activeIdx: 0,
+            init() {
+                auth.signInAnonymously().then(() => {
+                    db.ref('memos').once('value', snap => {
+                        const data = snap.val();
+                        if(data) data.forEach(m => this.inject(m));
+                        else this.createNewMemo();
+                    });
+                });
+            },
+            createNewMemo() {
+                this.inject({ id: '#'+Math.floor(1000+Math.random()*9000), date: new Date().toLocaleDateString('en-GB'), ship: 60, tag: 'DHAKA', status: 'PENDING', type: 'REGULAR', instructions: '' });
+            },
+            inject(m) {
+                const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
+                const card = tpl.querySelector('.memo-card');
+                card.querySelector('.m-id').innerText = m.id;
+                card.querySelector('.m-date').innerText = m.date;
+                card.querySelector('.m-name').value = m.name || '';
+                card.querySelector('.m-phone').value = m.phone || '';
+                card.querySelector('.m-addr').value = m.addr || '';
+                card.querySelector('.m-instructions').value = m.instructions || '';
+                card.querySelector('.m-ship-val').innerText = m.ship || 0;
+                card.querySelector('.m-tag').innerText = m.tag || 'DHAKA';
+                
+                const sTag = card.querySelector('.m-status-tag');
+                sTag.innerText = m.status || 'PENDING';
+                sTag.className = `m-status-tag font-black text-[9px] uppercase px-3 py-1 border-[2px] rounded-full st-${(m.status||'pending').toLowerCase()}`;
+                
+                const tTag = card.querySelector('.m-type-tag');
+                tTag.innerText = m.type || 'REGULAR';
+                tTag.className = `m-type-tag font-black text-[9px] uppercase px-3 py-1 rounded-full ${m.type === 'EXCHANGE' ? 'exchange' : ''} type-pill`;
+
+                if(m.items) {
+                    m.items.forEach(i => {
+                        card.querySelector('.m-rows').innerHTML += this.createRow(i.desc, i.var, i.qty, i.price);
+                    });
+                }
+
+                document.getElementById('workspace').prepend(card);
+                card.querySelectorAll('input, textarea').forEach(i => i.addEventListener('input', () => this.sync()));
+                this.activate(card);
+                this.recalc();
+            },
+            createRow(desc, variant, qty, price) {
+                return `
+                    <tr class="border-b border-black/5 group">
+                        <td class="py-3 opacity-20 sl-num"></td>
+                        <td class="py-3 uppercase">${desc}</td>
+                        <td class="text-center">${variant}</td>
+                        <td class="text-center">${qty}</td>
+                        <td class="text-right r-price">${(price*qty).toLocaleString()}</td>
+                        <td class="no-print text-right pl-2">
+                            <span onclick="Core.removeRow(this)" class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span>
+                        </td>
+                    </tr>`;
+            },
+            removeRow(btn) {
+                btn.closest('tr').remove();
+                this.recalc();
+            },
+            activate(el) {
+                const all = Array.from(document.querySelectorAll('.memo-card'));
+                all.forEach(c => c.classList.remove('active'));
+                el.classList.add('active');
+                this.activeIdx = all.indexOf(el);
+                this.updateUIButtons();
+                this.updateHistory();
+            },
+            getActive() { return document.querySelectorAll('.memo-card')[this.activeIdx]; },
+            setLifecycle(st) {
+                const a = this.getActive(); if(!a) return;
+                const tag = a.querySelector('.m-status-tag');
+                tag.innerText = st;
+                tag.className = `m-status-tag font-black text-[9px] uppercase px-3 py-1 border-[2px] rounded-full st-${st.toLowerCase()}`;
+                this.updateUIButtons();
+                this.sync();
+            },
+            setType(t) {
+                const a = this.getActive(); if(!a) return;
+                const tag = a.querySelector('.m-type-tag');
+                tag.innerText = t;
+                tag.className = `m-type-tag font-black text-[9px] uppercase px-3 py-1 rounded-full ${t === 'EXCHANGE' ? 'exchange' : ''} type-pill`;
+                this.updateUIButtons();
+                this.sync();
+            },
+            setShip(v, t) {
+                const a = this.getActive(); if(!a) return;
+                a.querySelector('.m-ship-val').innerText = v;
+                a.querySelector('.m-tag').innerText = t;
+                this.recalc();
+            },
+            addItem(desc, v, price) {
+                const a = this.getActive();
+                a.querySelector('.m-rows').innerHTML += this.createRow(desc, v, 1, price);
+                this.recalc();
+                Inventory.closePicker();
+            },
+            recalc() {
+                const a = this.getActive(); if(!a) return;
+                let sub = 0;
+                a.querySelectorAll('.r-price').forEach(p => sub += parseFloat(p.innerText.replace(/,/g,'')));
+                const ship = parseFloat(a.querySelector('.m-ship-val').innerText);
+                a.querySelector('.m-total').innerText = (sub + ship).toLocaleString();
+                a.querySelectorAll('.sl-num').forEach((td, i) => td.innerText = i + 1);
+                this.sync();
+            },
+            updateUIButtons() {
+                const a = this.getActive(); if(!a) return;
+                const status = a.querySelector('.m-status-tag').innerText;
+                const type = a.querySelector('.m-type-tag').innerText;
+                document.querySelectorAll('#status-toggles .pill-btn').forEach(b => b.classList.toggle('active-state', b.dataset.state === status));
+                document.querySelectorAll('[data-type]').forEach(b => b.classList.toggle('active-state', b.dataset.type === type));
+            },
+            updateHistory() {
+                const h = document.getElementById('history-list');
+                const all = Array.from(document.querySelectorAll('.memo-card'));
+                h.innerHTML = all.map((c, i) => `
+                    <div onclick="Core.activate(document.querySelectorAll('.memo-card')[${i}])" class="p-4 glass cursor-pointer ${i===this.activeIdx?'border-amber-500 bg-white/5':''}">
+                        <div class="text-[10px] font-black uppercase truncate">${c.querySelector('.m-name').value || 'New Entry'}</div>
+                        <div class="flex justify-between mt-1 opacity-40 text-[8px] font-black">
+                            <span>${c.querySelector('.m-id').innerText}</span>
+                            <span>${c.querySelector('.m-total').innerText}৳</span>
+                        </div>
+                    </div>
+                `).join('');
+            },
+            parse() {
+                const val = document.getElementById('quick-parse').value;
+                const a = this.getActive();
+                if(!val || !a) return;
+                const phone = (val.match(/01[3-9]\d{8}/) || [""])[0];
+                const lines = val.split('\n').filter(l => l.trim());
+                a.querySelector('.m-name').value = lines[0]?.toUpperCase() || '';
+                a.querySelector('.m-phone').value = phone || '';
+                a.querySelector('.m-addr').value = val.replace(lines[0], '').replace(phone, '').trim();
+                this.sync();
+            },
+            delete(e, btn) {
+                e.stopPropagation();
+                btn.closest('.memo-card').remove();
+                this.sync();
+                if(!document.querySelector('.memo-card')) this.createNewMemo();
+            },
+            sync() {
+                const memos = Array.from(document.querySelectorAll('.memo-card')).map(m => ({
+                    id: m.querySelector('.m-id').innerText,
+                    name: m.querySelector('.m-name').value,
+                    phone: m.querySelector('.m-phone').value,
+                    addr: m.querySelector('.m-addr').value,
+                    instructions: m.querySelector('.m-instructions').value,
+                    ship: m.querySelector('.m-ship-val').innerText,
+                    tag: m.querySelector('.m-tag').innerText,
+                    status: m.querySelector('.m-status-tag').innerText,
+                    type: m.querySelector('.m-type-tag').innerText,
+                    date: m.querySelector('.m-date').innerText,
+                    items: Array.from(m.querySelectorAll('.m-rows tr')).map(tr => ({
+                        desc: tr.cells[1].innerText,
+                        var: tr.cells[2].innerText,
+                        qty: tr.cells[3].innerText,
+                        price: parseFloat(tr.cells[4].innerText.replace(/,/g,'')) / parseInt(tr.cells[3].innerText)
+                    }))
+                }));
+                db.ref('memos').set(memos);
+                this.updateHistory();
+            }
+        };
+
+        const Logistics = {
+            export(provider) {
+                const memos = Array.from(document.querySelectorAll('.memo-card'));
+                let headers = [];
+                let rows = [];
+
+                if(provider === 'steadfast') {
+                    headers = ["Invoice","Name","Contact","Address","Amount","Note"];
+                    rows = memos.map(m => [
+                        m.querySelector('.m-id').innerText,
+                        m.querySelector('.m-name').value,
+                        m.querySelector('.m-phone').value,
+                        m.querySelector('.m-addr').value.replace(/,/g, ' '),
+                        m.querySelector('.m-total').innerText.replace(/,/g, ''),
+                        `${m.querySelector('.m-type-tag').innerText} | ${m.querySelector('.m-instructions').value.replace(/,/g, ' ')}`
+                    ]);
+                } else if(provider === 'pathao') {
+                    headers = ["Store","OrderID","RecipientName","RecipientPhone","RecipientAddress","City","Zone","Area","Amount","Weight","Special_Instruction"];
+                    rows = memos.map(m => [
+                        STORE_NAME, m.querySelector('.m-id').innerText, m.querySelector('.m-name').value, m.querySelector('.m-phone').value,
+                        m.querySelector('.m-addr').value.replace(/,/g, ' '), m.querySelector('.m-tag').innerText, "Main", "Zone",
+                        m.querySelector('.m-total').innerText.replace(/,/g, ''), "0.5", m.querySelector('.m-instructions').value.replace(/,/g, ' ')
+                    ]);
+                } else {
+                    headers = ["Order_ID","Customer_Name","Customer_Phone","Address","Collection_Amount","Category","Instruction"];
+                    rows = memos.map(m => [
+                        m.querySelector('.m-id').innerText, m.querySelector('.m-name').value, m.querySelector('.m-phone').value,
+                        m.querySelector('.m-addr').value.replace(/,/g, ' '), m.querySelector('.m-total').innerText.replace(/,/g, ''), "Apparel",
+                        m.querySelector('.m-instructions').value.replace(/,/g, ' ')
+                    ]);
+                }
+
+                const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ONEN_${provider.toUpperCase()}_${Date.now()}.csv`;
+                a.click();
+            }
+        };
+
+        window.onload = () => Core.init();
+    </script>
+</body>
+</html>"https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
@@ -279,3 +916,4 @@
     </script>
 </body>
 </html>
+
