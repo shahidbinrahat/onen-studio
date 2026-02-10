@@ -353,21 +353,17 @@ service cloud.firestore {
 
         /**
          * FIREBASE CONFIGURATION
-         * In a production environment, replace this with your own config from the Firebase Console.
+         * Updated with user-provided credentials
          */
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-                apiKey: "YOUR_PROD_API_KEY",
-                authDomain: "YOUR_PROD_DOMAIN.firebaseapp.com",
-                projectId: "YOUR_PROD_PROJECT_ID",
-                storageBucket: "YOUR_PROD_BUCKET.appspot.com",
-                messagingSenderId: "12345",
-                appId: "12345"
-            };
-        } catch(e) {
-            console.warn("Config parsing error - falling back to defaults");
-        }
+        const firebaseConfig = {
+            apiKey: "AIzaSyCouZxxbS2jqE6SiNRct4p0G3NxYGChDrw",
+            authDomain: "onen-logistics.firebaseapp.com",
+            projectId: "onen-logistics",
+            storageBucket: "onen-logistics.firebasestorage.app",
+            messagingSenderId: "1032584271169",
+            appId: "1:1032584271169:web:fd0f0a0a43e2b7a4f77dc0",
+            measurementId: "G-9M286G86DZ"
+        };
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
