@@ -108,6 +108,15 @@
                 border: none;
             } 
         }
+
+        .loading-pulse {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
     </style>
 </head>
 <body>
@@ -241,7 +250,7 @@
                     <label class="text-[8px] font-black uppercase opacity-20 tracking-widest ml-1">Colors (Black, Red...)</label>
                     <input id="inv-colors" class="bg-white/5 border border-white/10 p-4 rounded-xl w-full text-xs font-bold outline-none focus:border-amber-500 text-white" placeholder="Black, Grey">
                 </div>
-                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all">Save to Catalog</button>
+                <button id="btn-save-inv" class="bg-amber-500 text-black font-black uppercase text-[10px] tracking-widest py-4 rounded-xl col-span-4 hover:scale-[1.01] transition-all disabled:opacity-50 disabled:cursor-wait">Save to Catalog</button>
             </div>
 
             <div class="flex-grow overflow-y-auto custom-scroll pr-4">
@@ -364,14 +373,19 @@
             async init() {
                 this.updateSyncStatus('offline', 'Connecting...');
                 
+                // Track Auth State
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         currentUser = user;
                         this.updateSyncStatus('online', 'Live');
                         this.setupListeners();
+                    } else {
+                        currentUser = null;
+                        this.updateSyncStatus('offline', 'Auth Failed');
                     }
                 });
 
+                // Authenticate FIRST before anything else
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -379,7 +393,7 @@
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    console.error("Auth Error", e);
+                    console.error("Auth Exception", e);
                 }
 
                 this.bindEvents();
@@ -395,22 +409,27 @@
             setupListeners() {
                 if(!currentUser) return;
 
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), (snap) => {
-                    const data = [];
-                    snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
-                    memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
-                    this.renderMemos();
-                });
+                // Memos Listener
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'memos'), 
+                    (snap) => {
+                        const data = [];
+                        snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
+                        memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                        if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
+                        this.renderMemos();
+                    },
+                    (err) => console.error("Memo Load Error", err)
+                );
 
-                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), (snap) => {
-                    inventory = [];
-                    snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
-                    this.renderInventoryTable();
-                    if(!document.getElementById('picker-modal').classList.contains('hidden')) {
-                        this.openPicker();
-                    }
-                });
+                // Inventory Listener
+                onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'inventory'), 
+                    (snap) => {
+                        inventory = [];
+                        snap.forEach(doc => inventory.push({ ...doc.data(), id: doc.id }));
+                        this.renderInventoryTable();
+                    },
+                    (err) => console.error("Inventory Load Error", err)
+                );
             },
 
             bindEvents() {
@@ -438,8 +457,13 @@
             },
 
             async saveInventoryItem() {
-                if(!currentUser) return;
+                // GUARD: Must be authenticated
+                if(!auth.currentUser) {
+                    alert("System not authenticated yet. Please wait a second.");
+                    return;
+                }
 
+                const btn = document.getElementById('btn-save-inv');
                 const nameEl = document.getElementById('inv-name');
                 const priceEl = document.getElementById('inv-price');
                 const varsEl = document.getElementById('inv-vars');
@@ -447,53 +471,80 @@
 
                 const name = nameEl.value.trim();
                 const price = parseInt(priceEl.value);
-                const varsInput = varsEl.value;
-                const colorsInput = colorsEl.value;
                 
-                const variants = varsInput.split(',').map(v => v.trim()).filter(v => v);
-                const colors = colorsInput.split(',').map(v => v.trim()).filter(v => v);
-
                 if (!name || isNaN(price)) {
-                    alert("Name and Price are required.");
+                    alert("Please enter a valid product name and price.");
                     return;
                 }
 
+                const variants = varsEl.value.split(',').map(v => v.trim()).filter(v => v);
+                const colors = colorsEl.value.split(',').map(v => v.trim()).filter(v => v);
+
+                btn.disabled = true;
+                btn.innerText = "SAVING TO CLOUD...";
+
                 const itemId = crypto.randomUUID();
+                
                 try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId), {
-                        name, price, variants, colors, createdAt: Date.now()
+                    // Explicit path following Rule 1
+                    const productDoc = doc(db, 'artifacts', appId, 'public', 'data', 'inventory', itemId);
+                    
+                    await setDoc(productDoc, {
+                        name: name.toUpperCase(),
+                        price: price,
+                        variants: variants,
+                        colors: colors,
+                        createdAt: Date.now(),
+                        createdBy: auth.currentUser.uid
                     });
                     
+                    // Clear fields
                     nameEl.value = '';
                     priceEl.value = '';
                     varsEl.value = '';
                     colorsEl.value = '';
+                    
+                    btn.innerText = "SUCCESS!";
+                    setTimeout(() => {
+                        btn.disabled = false;
+                        btn.innerText = "Save to Catalog";
+                    }, 1000);
+
                 } catch (e) {
-                    console.error("Save Error", e);
+                    console.error("Firestore Save Error:", e);
+                    alert("Failed to save: " + e.message);
+                    btn.disabled = false;
+                    btn.innerText = "Save to Catalog";
                 }
             },
 
             async deleteInventoryItem(id) {
+                if(!auth.currentUser) return;
                 if(confirm("Remove from catalog?")) {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
+                    try {
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'inventory', id));
+                    } catch (e) {
+                        alert("Delete failed: " + e.message);
+                    }
                 }
             },
 
             renderInventoryTable() {
                 const tbody = document.getElementById('inv-table-body');
-                tbody.innerHTML = inventory.map(item => `
+                tbody.innerHTML = inventory.length > 0 ? inventory.map(item => `
                     <tr class="border-b border-white/5 group">
                         <td class="py-4 uppercase text-white">${item.name}</td>
-                        <td class="py-4 text-amber-500">৳${item.price.toLocaleString()}</td>
-                        <td class="py-4 opacity-50">${(item.variants || []).join(', ') || '—'}</td>
-                        <td class="py-4 opacity-50 uppercase">${(item.colors || []).join(', ') || '—'}</td>
+                        <td class="py-4 text-amber-500 font-black">৳${item.price.toLocaleString()}</td>
+                        <td class="py-4 opacity-50 text-[10px]">${(item.variants || []).join(', ') || '—'}</td>
+                        <td class="py-4 opacity-50 uppercase text-[10px]">${(item.colors || []).join(', ') || '—'}</td>
                         <td class="py-4 text-right">
-                            <button onclick="window.deleteInvItem('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors">
+                            <button onclick="window.deleteInvItem('${item.id}')" class="text-red-500/30 hover:text-red-500 transition-colors p-2">
                                 <i class="fa-solid fa-trash-can"></i>
                             </button>
                         </td>
                     </tr>
-                `).join('');
+                `).join('') : '<tr><td colspan="5" class="py-10 text-center opacity-20 uppercase font-black tracking-widest text-[10px]">No items in catalog</td></tr>';
+                
                 window.deleteInvItem = (id) => this.deleteInventoryItem(id);
             },
 
@@ -504,7 +555,7 @@
             },
 
             async createNewMemo() {
-                if(!currentUser) return;
+                if(!auth.currentUser) return;
                 const id = '#' + Math.floor(1000 + Math.random() * 9000);
                 const docId = crypto.randomUUID();
                 const memo = {
@@ -519,6 +570,8 @@
             renderMemos() {
                 const workspace = document.getElementById('workspace');
                 const historyList = document.getElementById('history-list');
+                if(!workspace) return;
+                
                 workspace.innerHTML = '';
                 historyList.innerHTML = '';
 
@@ -598,10 +651,14 @@
             },
 
             async updateMemo(data, id = null) {
-                if(!currentUser) return;
+                if(!auth.currentUser) return;
                 const targetId = id || activeDocId;
                 if(!targetId) return;
-                await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', targetId), data);
+                try {
+                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', targetId), data);
+                } catch (e) {
+                    console.error("Update error", e);
+                }
             },
 
             async deleteMemo(id) {
