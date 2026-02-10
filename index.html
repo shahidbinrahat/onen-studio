@@ -111,7 +111,7 @@
             <div class="flex justify-between items-start">
                 <div class="text-amber-500 font-black italic text-3xl tracking-tighter">ONEN STUDIO.</div>
                 <div id="sync-indicator" class="text-[10px] flex items-center gap-1.5 font-bold opacity-80 mt-2">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Init...</span>
+                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Syncing...</span>
                 </div>
             </div>
             
@@ -277,13 +277,16 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, query, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Global Firebase Config
         const firebaseConfig = JSON.parse(__firebase_config);
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        
+        // Critical Rule 1 & Environment Path ID
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
 
-        let user = null;
+        let currentUser = null;
         let memos = [];
         let activeDocId = null;
 
@@ -300,22 +303,25 @@
             async init() {
                 this.updateSyncStatus('offline', 'Connecting...');
                 
+                // Rule 3: Auth must be complete before any queries
                 try {
-                    // Rule 3: Auth Before Queries
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    this.updateSyncStatus('offline', 'Auth Failed');
+                    this.updateSyncStatus('offline', 'Auth Error');
+                    console.error("Auth Failure", e);
                 }
 
-                onAuthStateChanged(auth, (u) => {
-                    user = u;
+                onAuthStateChanged(auth, (user) => {
+                    currentUser = user;
                     if (user) {
-                        this.updateSyncStatus('online', 'Authenticated');
+                        this.updateSyncStatus('online', 'Connected');
                         this.setupListener();
+                    } else {
+                        this.updateSyncStatus('offline', 'Logged Out');
                     }
                 });
                 
@@ -330,28 +336,30 @@
             },
 
             setupListener() {
-                if (!user) return;
+                if (!currentUser) return;
                 
-                // Rule 1: Strict Paths
+                // Rule 1: Use specific artifact path
                 const collectionPath = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 const q = query(collectionPath);
                 
+                // Rule 2: Simple query (no orderBy)
                 onSnapshot(q, (snap) => {
-                    this.updateSyncStatus('online', 'Live');
                     const data = [];
                     snap.forEach(doc => {
                         data.push({ ...doc.data(), docId: doc.id });
                     });
                     
+                    // Sort in memory (Rule 2)
                     memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                     
                     if (memos.length > 0 && !activeDocId) {
                         activeDocId = memos[0].docId;
                     }
                     this.render();
+                    this.updateSyncStatus('online', 'Live');
                 }, (err) => {
-                    this.updateSyncStatus('offline', 'Path Denied');
-                    console.error("Firestore error:", err);
+                    this.updateSyncStatus('offline', 'Storage Error');
+                    console.error("Firestore error:", err.code, err.message);
                 });
             },
 
@@ -377,7 +385,7 @@
             },
 
             async createNewMemo() {
-                if (!user) return;
+                if (!currentUser) return;
                 const newId = '#' + Math.floor(1000 + Math.random() * 9000);
                 const docId = crypto.randomUUID();
                 const memo = {
@@ -399,7 +407,8 @@
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
                     activeDocId = docId;
                 } catch (e) {
-                    console.error("Create failed:", e);
+                    console.error("Creation failed", e);
+                    this.updateSyncStatus('offline', 'Save Failed');
                 }
             },
 
@@ -413,7 +422,7 @@
                     workspace.innerHTML = `
                         <div class="flex flex-col items-center justify-center py-40 opacity-20 group">
                             <div class="text-6xl mb-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-box-open"></i></div>
-                            <div class="font-black uppercase tracking-[0.5em]">No Active Memos</div>
+                            <div class="font-black uppercase tracking-[0.5em]">No Data - Create Your First Memo</div>
                         </div>
                     `;
                     return;
@@ -543,18 +552,22 @@
 
             async updateMemo(data, specificId = null) {
                 const id = specificId || activeDocId;
-                if (!user || !id) return;
+                if (!currentUser || !id) return;
                 try {
                     await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), data);
                 } catch(e) {
-                    console.error("Update failed:", e);
+                    console.error("Update error", e);
                 }
             },
 
             async deleteMemo(id) {
-                if (!user || !confirm("Delete this memo permanently?")) return;
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
-                if (activeDocId === id) activeDocId = memos.length > 1 ? memos[0].docId : null;
+                if (!currentUser || !confirm("Delete this memo permanently?")) return;
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
+                    if (activeDocId === id) activeDocId = memos.length > 1 ? memos[0].docId : null;
+                } catch(e) {
+                    console.error("Delete error", e);
+                }
             },
 
             openPicker() {
