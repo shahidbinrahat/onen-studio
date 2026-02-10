@@ -353,7 +353,6 @@ service cloud.firestore {
 
         /**
          * FIREBASE CONFIGURATION
-         * Updated with user-provided credentials
          */
         const firebaseConfig = {
             apiKey: "AIzaSyCouZxxbS2jqE6SiNRct4p0G3NxYGChDrw",
@@ -368,28 +367,34 @@ service cloud.firestore {
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
-        // Critical Rule 1 & Path ID
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-studio-v2';
 
-        let currentUser = null;
-        let memos = [];
-        let activeDocId = null;
-
+        /**
+         * ------------------------------------------------------------------
+         * PRODUCT INVENTORY SETUP
+         * ------------------------------------------------------------------
+         * Edit this list to update your "Add Product" picker.
+         * Format: { id: UniqueID, name: "Title", price: Amount, variants: ["v1", "v2"] }
+         */
         const Inventory = [
             { id: 1, name: "Onyx Basic Tee", price: 1250, variants: ["Black/M", "Black/L", "Black/XL"] },
             { id: 2, name: "Ghost Cargo Pants", price: 2850, variants: ["Grey/30", "Grey/32", "Grey/34"] },
             { id: 3, name: "Neon Studio Hoodie", price: 3400, variants: ["Purple/L", "Purple/XL"] },
             { id: 4, name: "Gravity Oversized", price: 1650, variants: ["Cream/M", "Cream/L"] },
             { id: 5, name: "Studio Tote Bag", price: 650, variants: ["Black/OneSize"] },
-            { id: 6, name: "Cyber Socks", price: 350, variants: ["White", "Black"] }
+            { id: 6, name: "Cyber Socks", price: 350, variants: ["White", "Black"] },
+            { id: 7, name: "Acid Wash Denim", price: 3200, variants: ["Blue/30", "Blue/32", "Blue/34"] },
+            { id: 8, name: "Signature Cap", price: 950, variants: ["Forest Green", "Midnight Black"] }
         ];
+        /** ----------------------------------------------------------------- */
+
+        let currentUser = null;
+        let memos = [];
+        let activeDocId = null;
 
         const Engine = {
             async init() {
                 this.updateSyncStatus('offline', 'Initializing...');
-                
-                // Rule 3: Auth first
                 try {
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
@@ -398,19 +403,14 @@ service cloud.firestore {
                     }
                 } catch (e) {
                     this.updateSyncStatus('offline', 'Auth Failed');
-                    console.error("Auth Failure", e);
                 }
-
                 onAuthStateChanged(auth, (user) => {
                     currentUser = user;
                     if (user) {
                         this.updateSyncStatus('online', 'Connected');
                         this.setupListener();
-                    } else {
-                        this.updateSyncStatus('offline', 'Logged Out');
                     }
                 });
-                
                 this.bindEvents();
             },
 
@@ -423,28 +423,17 @@ service cloud.firestore {
 
             setupListener() {
                 if (!currentUser) return;
-                
-                // Path strictly follows Rule 1
                 const collectionPath = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 const q = query(collectionPath);
-                
                 onSnapshot(q, (snap) => {
                     const data = [];
-                    snap.forEach(doc => {
-                        data.push({ ...doc.data(), docId: doc.id });
-                    });
-                    
-                    // Client-side sort (Rule 2)
+                    snap.forEach(doc => data.push({ ...doc.data(), docId: doc.id }));
                     memos = data.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    
-                    if (memos.length > 0 && !activeDocId) {
-                        activeDocId = memos[0].docId;
-                    }
+                    if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.render();
                     this.updateSyncStatus('online', 'Live');
                 }, (err) => {
                     this.updateSyncStatus('offline', 'Sync Error');
-                    console.error("Firestore error:", err.code, err.message);
                 });
             },
 
@@ -484,24 +473,13 @@ service cloud.firestore {
                 const memo = {
                     id: newId,
                     date: new Date().toLocaleDateString('en-GB'),
-                    name: '',
-                    phone: '',
-                    addr: '',
-                    instructions: '',
-                    ship: 60,
-                    tag: 'DHAKA',
-                    status: 'PENDING',
-                    type: 'REGULAR',
-                    items: [],
-                    createdAt: Date.now()
+                    name: '', phone: '', addr: '', instructions: '', ship: 60, tag: 'DHAKA',
+                    status: 'PENDING', type: 'REGULAR', items: [], createdAt: Date.now()
                 };
-                
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', docId), memo);
                     activeDocId = docId;
-                } catch (e) {
-                    console.error("Creation failed", e);
-                }
+                } catch (e) { console.error(e); }
             },
 
             render() {
@@ -511,12 +489,7 @@ service cloud.firestore {
                 historyList.innerHTML = '';
 
                 if (memos.length === 0) {
-                    workspace.innerHTML = `
-                        <div class="flex flex-col items-center justify-center py-40 opacity-20 group">
-                            <div class="text-6xl mb-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-box-open"></i></div>
-                            <div class="font-black uppercase tracking-[0.5em]">No Data - Create Your First Memo</div>
-                        </div>
-                    `;
+                    workspace.innerHTML = `<div class="flex flex-col items-center justify-center py-40 opacity-20 group"><div class="text-6xl mb-4 group-hover:scale-110 transition-transform"><i class="fa-solid fa-box-open"></i></div><div class="font-black uppercase tracking-[0.5em]">No Data - Create Your First Memo</div></div>`;
                     return;
                 }
 
@@ -568,98 +541,54 @@ service cloud.firestore {
                                 <span class="hidden print:inline">${item.qty}</span>
                             </td>
                             <td class="text-right">${(item.price * item.qty).toLocaleString()}</td>
-                            <td class="no-print text-right pl-2">
-                                <span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span>
-                            </td>
+                            <td class="no-print text-right pl-2"><span class="row-remove-btn"><i class="fa-solid fa-xmark"></i></span></td>
                         `;
                         tr.querySelector('.q-inc').onclick = () => {
-                            const items = [...m.items];
-                            items[idx].qty++;
+                            const items = [...m.items]; items[idx].qty++;
                             this.updateMemo({ items }, m.docId);
                         };
                         tr.querySelector('.q-dec').onclick = () => {
                             const items = [...m.items];
-                            if (items[idx].qty > 1) {
-                                items[idx].qty--;
-                                this.updateMemo({ items }, m.docId);
-                            }
+                            if (items[idx].qty > 1) { items[idx].qty--; this.updateMemo({ items }, m.docId); }
                         };
                         tr.querySelector('.row-remove-btn').onclick = () => {
-                            const items = [...m.items];
-                            items.splice(idx, 1);
+                            const items = [...m.items]; items.splice(idx, 1);
                             this.updateMemo({ items }, m.docId);
                         };
                         rows.appendChild(tr);
                     });
 
                     card.querySelector('.m-total').innerText = (subtotal + m.ship).toLocaleString();
-
-                    card.onclick = () => {
-                        if (activeDocId !== m.docId) {
-                            activeDocId = m.docId;
-                            this.render();
-                        }
-                    };
-
-                    card.querySelector('.m-delete-btn').onclick = (e) => {
-                        e.stopPropagation();
-                        this.deleteMemo(m.docId);
-                    };
-
+                    card.onclick = () => { if (activeDocId !== m.docId) { activeDocId = m.docId; this.render(); } };
+                    card.querySelector('.m-delete-btn').onclick = (e) => { e.stopPropagation(); this.deleteMemo(m.docId); };
                     workspace.appendChild(card);
 
                     const hist = document.createElement('div');
                     hist.className = `p-4 glass cursor-pointer transition-all ${isActive ? 'border-amber-500 bg-white/5 opacity-100' : 'opacity-40 hover:opacity-100'}`;
-                    hist.innerHTML = `
-                        <div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'NEW ORDER'}</div>
-                        <div class="flex justify-between mt-1 opacity-60 text-[8px] font-black">
-                            <span>${m.id}</span>
-                            <span>${(subtotal + m.ship).toLocaleString()}৳</span>
-                        </div>
-                    `;
-                    hist.onclick = () => {
-                        activeDocId = m.docId;
-                        this.render();
-                    };
+                    hist.innerHTML = `<div class="text-[10px] font-black uppercase truncate text-white">${m.name || 'NEW ORDER'}</div><div class="flex justify-between mt-1 opacity-60 text-[8px] font-black"><span>${m.id}</span><span>${(subtotal + m.ship).toLocaleString()}৳</span></div>`;
+                    hist.onclick = () => { activeDocId = m.docId; this.render(); };
                     historyList.appendChild(hist);
                 });
-
                 this.syncSidebarControls();
             },
 
             syncSidebarControls() {
                 const active = memos.find(m => m.docId === activeDocId);
                 if (!active) return;
-
-                document.querySelectorAll('[data-action="setLifecycle"]').forEach(btn => {
-                    btn.classList.toggle('active-state', btn.dataset.state === active.status);
-                });
-                document.querySelectorAll('[data-action="setType"]').forEach(btn => {
-                    btn.classList.toggle('active-state', btn.dataset.type === active.type);
-                });
-                document.querySelectorAll('[data-action="setShip"]').forEach(btn => {
-                    btn.classList.toggle('active-state', parseInt(btn.dataset.val) === active.ship);
-                });
+                document.querySelectorAll('[data-action="setLifecycle"]').forEach(btn => btn.classList.toggle('active-state', btn.dataset.state === active.status));
+                document.querySelectorAll('[data-action="setType"]').forEach(btn => btn.classList.toggle('active-state', btn.dataset.type === active.type));
+                document.querySelectorAll('[data-action="setShip"]').forEach(btn => btn.classList.toggle('active-state', parseInt(btn.dataset.val) === active.ship));
             },
 
             async updateMemo(data, specificId = null) {
                 const id = specificId || activeDocId;
                 if (!currentUser || !id) return;
-                try {
-                    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), data);
-                } catch(e) {
-                    console.error("Update error", e);
-                }
+                try { await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), data); } catch(e) {}
             },
 
             async deleteMemo(id) {
                 if (!currentUser || !confirm("Delete this memo permanently?")) return;
-                try {
-                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id));
-                    if (activeDocId === id) activeDocId = memos.length > 1 ? memos[0].docId : null;
-                } catch(e) {
-                    console.error("Delete error", e);
-                }
+                try { await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id)); } catch(e) {}
             },
 
             openPicker() {
@@ -667,51 +596,32 @@ service cloud.firestore {
                 const modal = document.getElementById('picker-modal');
                 const grid = document.getElementById('picker-grid');
                 modal.classList.replace('hidden', 'flex');
-                
                 grid.innerHTML = Inventory.map(item => `
                     <div class="glass p-8 flex flex-col gap-4 border-white/5 hover:border-amber-500/30">
                         <div class="flex justify-between items-start">
-                            <div>
-                                <h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4>
-                                <span class="text-amber-500 font-bold text-xs">৳${item.price.toLocaleString()}</span>
-                            </div>
+                            <div><h4 class="font-black uppercase text-xl text-white tracking-tighter">${item.name}</h4><span class="text-amber-500 font-bold text-xs">৳${item.price.toLocaleString()}</span></div>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            ${item.variants.map(v => `
-                                <button class="pill-btn hover:bg-white hover:text-black text-white border-white/10 add-v-btn" 
-                                    data-name="${item.name}" data-var="${v}" data-price="${item.price}">
-                                    ${v}
-                                </button>
-                            `).join('')}
+                            ${item.variants.map(v => `<button class="pill-btn hover:bg-white hover:text-black text-white border-white/10 add-v-btn" data-name="${item.name}" data-var="${v}" data-price="${item.price}">${v}</button>`).join('')}
                         </div>
                     </div>
                 `).join('');
-
                 grid.querySelectorAll('.add-v-btn').forEach(btn => {
                     btn.onclick = () => {
                         const m = memos.find(m => m.docId === activeDocId);
-                        const items = [...(m.items || []), {
-                            name: btn.dataset.name,
-                            variant: btn.dataset.var,
-                            price: parseInt(btn.dataset.price),
-                            qty: 1
-                        }];
-                        this.updateMemo({ items });
-                        this.closePicker();
+                        const items = [...(m.items || []), { name: btn.dataset.name, variant: btn.dataset.var, price: parseInt(btn.dataset.price), qty: 1 }];
+                        this.updateMemo({ items }); this.closePicker();
                     };
                 });
             },
 
-            closePicker() {
-                document.getElementById('picker-modal').classList.replace('flex', 'hidden');
-            },
+            closePicker() { document.getElementById('picker-modal').classList.replace('flex', 'hidden'); },
 
             parse(val) {
                 if (!val || !activeDocId) return;
                 const lines = val.split('\n').map(l => l.trim()).filter(l => l);
                 const phoneMatch = val.match(/01[3-9]\d{8}/);
                 const phone = phoneMatch ? phoneMatch[0] : "";
-                
                 if (lines.length > 0) {
                     const name = lines[0].toUpperCase();
                     const addr = val.replace(lines[0], '').replace(phone, '').replace(/\n/g, ' ').trim();
@@ -722,9 +632,7 @@ service cloud.firestore {
 
             exportCSV(provider) {
                 if (memos.length === 0) return;
-                let headers = [];
-                let csvData = [];
-
+                let headers = [], csvData = [];
                 if (provider === 'steadfast') {
                     headers = ["Invoice","Name","Contact","Address","Amount","Note"];
                     csvData = memos.map(m => [m.id, m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.instructions]);
@@ -735,14 +643,11 @@ service cloud.firestore {
                     headers = ["Customer Name","Phone Number","Full Address","Collection Amount","Reference ID","Instructions"];
                     csvData = memos.map(m => [m.name, m.phone, m.addr.replace(/,/g, ' '), (m.items || []).reduce((a, b) => a + (b.price * b.qty), 0) + m.ship, m.id, m.instructions]);
                 }
-
                 const csvContent = [headers.join(','), ...csvData.map(r => r.join(','))].join('\n');
                 const blob = new Blob([csvContent], { type: 'text/csv' });
                 const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `ONEN_${provider}_${new Date().toISOString().split('T')[0]}.csv`;
-                a.click();
+                const a = document.createElement('a'); a.href = url;
+                a.download = `ONEN_${provider}_${new Date().toISOString().split('T')[0]}.csv`; a.click();
             }
         };
 
