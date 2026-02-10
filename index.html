@@ -3,440 +3,270 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ONEN STUDIO | Logistics Engine</title>
+    <title>ONEN STUDIO | Stock & Memo Engine</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Using Compat version for simplicity in a single-file environment -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
         
         :root { 
             --accent: #F59E0B; 
-            --apple-ease: cubic-bezier(0.4, 0, 0.2, 1);
-            --glass-bg: rgba(255, 255, 255, 0.03);
-            --glass-border: rgba(255, 255, 255, 0.08);
+            --smooth: cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: #000; 
-            color: white; 
-            margin: 0;
-            height: 100vh;
-            overflow: hidden;
+            background-color: #050505; 
+            color: #fff;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
-
-        .fade-in { animation: fadeIn 0.8s var(--apple-ease) forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
         .glass { 
-            background: var(--glass-bg); 
-            backdrop-filter: blur(25px) saturate(150%);
-            -webkit-backdrop-filter: blur(25px) saturate(150%);
-            border: 1px solid var(--glass-border); 
-            border-radius: 1.5rem;
-            transition: all 0.5s var(--apple-ease);
+            background: rgba(255, 255, 255, 0.02); 
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.05); 
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
         }
 
-        .memo-card { 
-            width: 210mm; 
-            min-height: 148.5mm; 
-            background: #fff; 
-            color: #000; 
-            margin: 0 auto 60px auto; 
-            padding: 15mm;
-            position: relative; 
-            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.5);
+        .input-glass {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: 12px;
-            transition: transform 0.8s var(--apple-ease), opacity 0.8s var(--apple-ease), filter 0.8s var(--apple-ease); 
-            transform: scale(0.96);
-            opacity: 0.1;
-            filter: blur(12px);
-            box-sizing: border-box; 
+            transition: all 0.3s var(--smooth);
         }
 
-        .memo-card.active { transform: scale(1); opacity: 1; filter: blur(0); }
-
-        .pill-btn {
-            padding: 10px 20px;
-            font-size: 10px;
-            font-weight: 800;
-            letter-spacing: 0.05em;
-            text-transform: uppercase;
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 99px;
-            transition: all 0.3s var(--apple-ease);
-            cursor: pointer;
-            color: rgba(255,255,255,0.5);
-            background: transparent;
+        .input-glass:focus {
+            background: rgba(255, 255, 255, 0.07);
+            border-color: var(--accent);
+            outline: none;
         }
-        .pill-btn:hover { border-color: white; color: white; background: rgba(255,255,255,0.05); }
-        .pill-btn.active-state { background: white; color: black; border-color: white; }
+
+        .btn-action {
+            transition: all 0.3s var(--smooth);
+        }
+        .btn-action:hover { transform: scale(1.05); }
+        .btn-action:active { transform: scale(0.95); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-fade { animation: fadeIn 0.6s var(--smooth) forwards; }
         
-        #sync-indicator.online { color: #10b981; }
-        #sync-indicator.syncing { color: var(--accent); animation: pulse 2s infinite; }
-        #sync-indicator.offline { color: #ef4444; }
-
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-        .custom-scroll::-webkit-scrollbar { width: 4px; }
-        .custom-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-        .line-item-row:hover .delete-item { opacity: 1; }
-        .delete-item { opacity: 0; transition: opacity 0.2s; cursor: pointer; }
-
-        @media print { 
-            .no-print { display: none !important; } 
-            body { background: white; height: auto; overflow: visible; }
-            .memo-card { opacity: 1!important; transform: scale(1)!important; margin: 0!important; box-shadow: none!important; filter: none!important; display: flex !important; } 
-        }
-
-        .memo-card input, .memo-card textarea {
-            border: none; outline: none; background: transparent; width: 100%; transition: background 0.2s;
-        }
-        .memo-card input:focus { background: rgba(0,0,0,0.02); }
+        ::-webkit-scrollbar { width: 3px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
     </style>
 </head>
-<body>
+<body class="min-h-screen">
 
-    <div class="flex h-screen overflow-hidden no-print">
-        <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-10 custom-scroll overflow-y-auto z-50">
-            <div class="fade-in">
-                <div class="text-white font-black italic text-3xl tracking-tighter flex items-center gap-2">
-                    ONEN<span class="text-amber-500">.</span>
-                </div>
-                <div id="sync-indicator" class="text-[10px] flex items-center gap-2 font-bold syncing mt-3">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Initializing...</span>
-                </div>
-            </div>
-            
-            <div id="ui-controls" class="hidden space-y-10 fade-in">
-                 <button id="btn-new-memo" class="w-full bg-white text-black py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-xl">
-                    <i class="fa-solid fa-plus"></i> New Manifest
-                </button>
-
-                <div class="space-y-5">
-                    <label class="text-[9px] uppercase font-black opacity-20 tracking-[0.3em]">Lifecycle</label>
-                    <div class="flex flex-wrap gap-2">
-                        <button id="lifecycle-PENDING" data-action="setLifecycle" data-state="PENDING" class="pill-btn">Pending</button>
-                        <button id="lifecycle-UNPAID" data-action="setLifecycle" data-state="UNPAID" class="pill-btn">Unpaid</button>
-                        <button id="lifecycle-PAID" data-action="setLifecycle" data-state="PAID" class="pill-btn">Paid</button>
-                    </div>
-                </div>
-
-                <div class="space-y-5">
-                    <label class="text-[9px] uppercase font-black opacity-20 tracking-[0.3em]">Destination</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button id="ship-DHAKA" data-action="setShip" data-val="60" data-tag="DHAKA" class="pill-btn">Dhaka</button>
-                        <button id="ship-OUTSIDE" data-action="setShip" data-val="120" data-tag="OUTSIDE" class="pill-btn">Outside</button>
-                    </div>
-                </div>
-
-                <div class="pt-6 border-t border-white/5">
-                    <label class="text-[9px] uppercase font-black opacity-20 tracking-[0.3em] mb-4 block">Manifest History</label>
-                    <div id="history-list" class="space-y-3 max-h-80 overflow-y-auto custom-scroll pr-2"></div>
-                </div>
-            </div>
-
-            <div id="ui-loader" class="flex-grow flex flex-col items-center justify-center opacity-30">
-                <div class="w-6 h-6 border-2 border-white/10 border-t-white rounded-full animate-spin"></div>
-            </div>
-        </aside>
-
-        <main class="flex-grow bg-[#0a0a0a] overflow-y-auto p-12 custom-scroll scroll-smooth">
-            <div id="workspace" class="max-w-4xl mx-auto pb-48"></div>
-            <div id="bar-controls" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/5 backdrop-blur-3xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl z-50 fade-in">
-                <button onclick="window.print()" class="bg-white text-black px-12 py-3 rounded-2xl text-[10px] font-black uppercase shadow-lg active:scale-95 transition-all">Generate PDF</button>
-            </div>
-        </main>
-    </div>
-
-    <template id="memo-tpl">
-        <div class="memo-card group">
-            <div class="flex justify-between border-b-[8px] border-black pb-6 mb-10">
-                <div>
-                    <h1 class="text-7xl font-black italic tracking-tighter text-black leading-none">ONEN</h1>
-                    <p class="text-[10px] font-black uppercase tracking-[0.4em] mt-2 opacity-40">Logistics Orchestration</p>
-                </div>
-                <div class="text-right flex flex-col justify-end text-black">
-                    <div class="text-5xl font-black m-id tracking-tighter">#0000</div>
-                    <div class="text-[10px] font-black opacity-30 m-date uppercase tracking-[0.2em] mt-2"></div>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-16 mb-12">
-                <div class="space-y-4">
-                    <input class="m-name font-black text-3xl placeholder-gray-300 uppercase" placeholder="CLIENT NAME">
-                    <input class="m-phone font-bold text-xl placeholder-gray-300" placeholder="PHONE NUMBER">
-                    <textarea class="m-addr text-[14px] h-20 placeholder-gray-300 font-medium resize-none border-none outline-none bg-transparent w-full" placeholder="DELIVERY ADDRESS"></textarea>
-                </div>
-                <div class="text-right">
-                    <span class="m-tag border-[4px] border-black px-8 py-3 text-[12px] font-extrabold italic tracking-widest inline-block uppercase text-black">DHAKA</span>
-                </div>
-            </div>
-
-            <div class="flex-grow">
-                <table class="w-full text-[14px] text-black">
-                    <thead>
-                        <tr class="border-b-2 border-black text-left">
-                            <th class="pb-3 uppercase tracking-widest text-[10px] font-black">Description</th>
-                            <th class="pb-3 uppercase tracking-widest text-[10px] font-black text-center w-24">Qty</th>
-                            <th class="pb-3 uppercase tracking-widest text-[10px] font-black text-right w-36">Price</th>
-                        </tr>
-                    </thead>
-                    <tbody class="m-rows font-bold"></tbody>
-                </table>
-                <button class="add-item-btn no-print mt-6 text-[10px] font-black uppercase tracking-widest opacity-20 hover:opacity-100 transition-opacity flex items-center gap-2">
-                    <i class="fa-solid fa-plus-circle"></i> Add Line Item
-                </button>
-            </div>
-
-            <div class="mt-12 border-t-2 border-black pt-8 flex justify-between items-end text-black">
-                <div class="text-[9px] font-bold opacity-30 uppercase tracking-widest max-w-[200px]">ONEN STUDIO | LOGISTICS ENGINE</div>
-                <div class="text-right w-72">
-                    <div class="flex justify-between text-[12px] font-bold mb-3 opacity-40 uppercase">
-                        <span>Standard Delivery</span>
-                        <span>৳ <span class="m-ship-val">0</span></span>
-                    </div>
-                    <div class="flex justify-between border-t-[4px] border-black pt-4 font-black">
-                        <span class="text-[14px] mt-2 uppercase italic tracking-tighter">Total Payable</span>
-                        <div class="flex items-start">
-                            <span class="text-2xl mt-1 mr-1 font-medium">৳</span>
-                            <span class="text-6xl m-total tracking-tighter">0</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <button class="m-delete-btn no-print absolute -top-4 -right-4 bg-red-500 text-white w-10 h-10 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-xl">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
+    <!-- Header -->
+    <header class="max-w-[1400px] mx-auto p-6 md:p-10 flex justify-between items-center animate-fade">
+        <div>
+            <h1 class="text-3xl font-black tracking-tighter italic text-white leading-none">ONEN STUDIO <span class="text-amber-500">STOCK</span></h1>
+            <p class="text-white/20 text-[9px] uppercase font-bold tracking-[0.5em] mt-2">Shared Cloud Infrastructure v3.1</p>
         </div>
-    </template>
+        <div id="connection-status" class="glass px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-widest text-white/40 flex items-center gap-2">
+            <div class="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div> Initializing...
+        </div>
+    </header>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <main class="max-w-[1400px] mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 pb-20">
+        
+        <!-- Sidebar: Controls & Stats -->
+        <section class="lg:col-span-4 space-y-6 animate-fade" style="animation-delay: 0.1s">
+            
+            <!-- Stock Add Form -->
+            <div class="glass p-7 rounded-[2rem]">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-amber-500 mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive"></i> New Inventory Item
+                </h2>
+                <form id="stock-form" class="space-y-4">
+                    <input type="text" id="itemName" required class="input-glass w-full p-4 text-sm font-semibold" placeholder="Item Name (e.g. GPU RTX 4090)">
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="number" id="itemQty" required class="input-glass w-full p-4 text-sm" placeholder="Initial Qty">
+                        <input type="text" id="itemCategory" class="input-glass w-full p-4 text-sm" placeholder="Category">
+                    </div>
+                    <button type="submit" class="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase tracking-widest hover:bg-amber-500 transition-colors">
+                        Register Stock
+                    </button>
+                </form>
+            </div>
 
-        // Global State
-        let db, auth, currentUser, activeDocId;
-        let memos = [];
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-v2-logistics';
+            <!-- Memo System -->
+            <div class="glass p-7 rounded-[2rem]">
+                <h2 class="text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-6 flex items-center gap-2">
+                    <i class="fa-solid fa-note-sticky"></i> Shared Memo Pad
+                </h2>
+                <textarea id="memo-input" class="input-glass w-full p-4 text-sm h-32 resize-none mb-3" placeholder="Drop a note for the team..."></textarea>
+                <button id="save-memo" class="w-full border border-white/10 text-white font-bold py-3 rounded-xl text-[10px] uppercase tracking-widest hover:bg-white/5 transition-all">
+                    Update Memo
+                </button>
+                <div id="memo-display" class="mt-4 p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 hidden">
+                    <p id="memo-text" class="text-xs text-white/70 leading-relaxed italic"></p>
+                </div>
+            </div>
 
-        const UI = {
-            updateSync(state, label) {
-                const el = document.getElementById('sync-indicator');
-                if(el) {
-                    el.className = `text-[10px] flex items-center gap-2 font-bold mt-3 ${state}`;
-                    el.querySelector('span').innerText = label;
-                }
-            },
-            unlock() {
-                document.getElementById('ui-loader')?.classList.add('hidden');
-                document.getElementById('ui-controls')?.classList.remove('hidden');
-                document.getElementById('bar-controls')?.classList.remove('hidden');
-                this.updateSync('online', 'Nexus Connected');
-            }
+            <!-- Global Metrics -->
+            <div class="grid grid-cols-2 gap-4">
+                <div class="glass p-6 rounded-3xl">
+                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Total SKU</p>
+                    <p id="stat-sku" class="text-3xl font-black italic">0</p>
+                </div>
+                <div class="glass p-6 rounded-3xl">
+                    <p class="text-[8px] font-black opacity-20 uppercase tracking-widest mb-1">Stock Items</p>
+                    <p id="stat-items" class="text-3xl font-black italic text-amber-500">0</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Inventory List -->
+        <section class="lg:col-span-8 animate-fade" style="animation-delay: 0.2s">
+            <div class="glass p-8 rounded-[2.5rem] min-h-[700px]">
+                <div class="flex justify-between items-center mb-10">
+                    <h2 class="text-xs font-black uppercase tracking-widest flex items-center gap-3">
+                        <span class="w-2 h-2 rounded-full bg-amber-500"></span> Live Inventory
+                    </h2>
+                    <div class="flex gap-2">
+                         <input type="text" id="search" placeholder="Filter..." class="bg-transparent border-b border-white/10 text-[10px] uppercase font-bold px-2 py-1 focus:border-amber-500 outline-none">
+                    </div>
+                </div>
+                
+                <div id="stock-list" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Dynamic Items -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // REPLACE with your actual config from Firebase Console
+        const firebaseConfig = {
+            apiKey: "AIzaSyDEENrU2aGMwdeTSSHzGhovpcZlmqiTuwM", 
+            authDomain: "onen-studio.firebaseapp.com",
+            databaseURL: "https://onen-studio-default-rtdb.firebaseio.com",
+            projectId: "onen-studio"
         };
 
-        const Engine = {
-            async boot() {
-                // Pre-flight check for Firebase Config
-                const checkConfig = () => {
-                    if (typeof __firebase_config === 'undefined') return null;
-                    try {
-                        const parsed = JSON.parse(__firebase_config);
-                        return (parsed && parsed.apiKey) ? parsed : null;
-                    } catch(e) { return null; }
-                };
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const auth = firebase.auth();
 
-                const waitForConfig = async () => {
-                    let config = checkConfig();
-                    let limit = 0;
-                    while (!config && limit < 50) { // Max 5 seconds
-                        await new Promise(r => setTimeout(r, 100));
-                        config = checkConfig();
-                        limit++;
-                    }
-                    return config;
-                };
+        function initApp() {
+            auth.signInAnonymously()
+                .then(() => {
+                    const statusEl = document.getElementById('connection-status');
+                    statusEl.innerHTML = `<div class="w-1.5 h-1.5 rounded-full bg-green-500"></div> System Live`;
+                    statusEl.classList.replace('text-white/40', 'text-green-500/80');
+                    setupListeners();
+                })
+                .catch(err => {
+                    console.error(err);
+                    document.getElementById('connection-status').innerHTML = `Auth Error`;
+                });
+        }
 
-                const config = await waitForConfig();
-                if (!config) {
-                    UI.updateSync('offline', 'Configuration Failure');
+        function setupListeners() {
+            const stockForm = document.getElementById('stock-form');
+            const stockList = document.getElementById('stock-list');
+            const memoInput = document.getElementById('memo-input');
+            const saveMemoBtn = document.getElementById('save-memo');
+            const memoDisplay = document.getElementById('memo-display');
+            const memoText = document.getElementById('memo-text');
+
+            // 1. Stock Creation
+            stockForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const data = {
+                    name: document.getElementById('itemName').value,
+                    qty: parseInt(document.getElementById('itemQty').value),
+                    category: document.getElementById('itemCategory').value || 'General',
+                    updatedAt: firebase.database.ServerValue.TIMESTAMP
+                };
+                db.ref('inventory').push(data);
+                stockForm.reset();
+            });
+
+            // 2. Real-time Inventory Updates
+            db.ref('inventory').on('value', (snap) => {
+                const data = snap.val();
+                stockList.innerHTML = '';
+                let totalQty = 0;
+                let skuCount = 0;
+
+                if (!data) {
+                    stockList.innerHTML = '<div class="col-span-full h-64 flex items-center justify-center text-[10px] font-black uppercase opacity-10 tracking-[0.5em]">Inventory Empty</div>';
                     return;
                 }
 
-                try {
-                    const app = initializeApp(config);
-                    auth = getAuth(app);
-                    db = getFirestore(app);
+                Object.entries(data).reverse().forEach(([id, item]) => {
+                    totalQty += item.qty;
+                    skuCount++;
 
-                    onAuthStateChanged(auth, (user) => {
-                        if (user) {
-                            currentUser = user;
-                            UI.unlock();
-                            this.bindData();
-                        } else {
-                            this.authenticate();
-                        }
-                    });
-                } catch (e) {
-                    console.error("Firebase Init Failed", e);
-                    UI.updateSync('offline', 'Service Error');
-                }
-            },
-
-            async authenticate() {
-                try {
-                    // Always try custom token first if available
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (e) {
-                    console.warn("Primary Auth Failed, forcing Anonymous", e);
-                    try {
-                        await signInAnonymously(auth);
-                    } catch(inner) {
-                        UI.updateSync('offline', 'Auth Failure');
-                    }
-                }
-            },
-
-            bindData() {
-                const ref = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
-                onSnapshot(ref, (snap) => {
-                    const data = [];
-                    snap.forEach(d => data.push({ ...d.data(), docId: d.id }));
-                    memos = data.sort((a,b) => (b.createdAt || 0) - (a.createdAt || 0));
-                    if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
-                    this.render();
-                }, (err) => {
-                    console.error("Snapshot error", err);
-                    UI.updateSync('offline', 'Sync Interrupted');
+                    const card = document.createElement('div');
+                    card.className = 'glass p-6 rounded-3xl flex flex-col justify-between hover:bg-white/[0.04] transition-all border-l-2 border-amber-500/0 hover:border-amber-500/50';
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <p class="text-[8px] font-black text-amber-500 uppercase tracking-widest mb-1">${item.category}</p>
+                                <h3 class="text-sm font-bold text-white tracking-tight">${item.name}</h3>
+                            </div>
+                            <button onclick="deleteItem('${id}')" class="text-white/10 hover:text-red-500 transition-colors">
+                                <i class="fa-solid fa-xmark text-xs"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <button onclick="updateQty('${id}', -1)" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center hover:bg-white/10 btn-action text-xs">-</button>
+                                <span class="text-2xl font-black italic w-8 text-center">${item.qty}</span>
+                                <button onclick="updateQty('${id}', 1)" class="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center hover:bg-amber-600 btn-action text-black text-xs">+</button>
+                            </div>
+                            <span class="text-[8px] font-bold opacity-20 uppercase">ID: ${id.slice(-4)}</span>
+                        </div>
+                    `;
+                    stockList.appendChild(card);
                 });
-            },
 
-            async create() {
-                const id = Date.now().toString();
-                const newDoc = {
-                    id: '#' + Math.floor(1000 + Math.random() * 9000),
-                    date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    name: '', phone: '', addr: '', ship: 60, tag: 'DHAKA',
-                    status: 'PENDING', items: [{ desc: 'NEW ITEM', qty: 1, price: 0 }], createdAt: Date.now()
-                };
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), newDoc);
-                activeDocId = id;
-            },
+                document.getElementById('stat-sku').innerText = skuCount;
+                document.getElementById('stat-items').innerText = totalQty;
+            });
 
-            render() {
-                const workspace = document.getElementById('workspace');
-                const history = document.getElementById('history-list');
-                workspace.innerHTML = '';
-                history.innerHTML = '';
+            // 3. Memo System
+            saveMemoBtn.addEventListener('click', () => {
+                const val = memoInput.value.trim();
+                if(val) db.ref('sharedMemo').set({ text: val, timestamp: firebase.database.ServerValue.TIMESTAMP });
+            });
 
-                if (memos.length === 0) {
-                    workspace.innerHTML = `<div class="h-96 flex flex-col items-center justify-center text-white/5 font-black uppercase text-xs tracking-[0.4em]">Ready for Dispatch</div>`;
-                    return;
+            db.ref('sharedMemo').on('value', (snap) => {
+                const data = snap.val();
+                if (data && data.text) {
+                    memoDisplay.classList.remove('hidden');
+                    memoText.innerText = data.text;
+                    memoInput.value = data.text;
                 }
+            });
+        }
 
-                memos.forEach(m => {
-                    const isActive = m.docId === activeDocId;
-                    const tpl = document.getElementById('memo-tpl').content.cloneNode(true);
-                    const card = tpl.querySelector('.memo-card');
-                    if (isActive) {
-                        card.classList.add('active');
-                        document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active-state'));
-                        document.getElementById(`lifecycle-${m.status}`)?.classList.add('active-state');
-                        document.getElementById(`ship-${m.tag}`)?.classList.add('active-state');
-                    }
-
-                    const setVal = (sel, val) => { 
-                        const el = card.querySelector(sel); 
-                        if(!el) return;
-                        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = val; 
-                        else el.innerText = val; 
-                    };
-                    
-                    setVal('.m-id', m.id);
-                    setVal('.m-date', m.date);
-                    setVal('.m-name', m.name || '');
-                    setVal('.m-phone', m.phone || '');
-                    setVal('.m-addr', m.addr || '');
-                    setVal('.m-ship-val', m.ship || 60);
-                    setVal('.m-tag', m.tag || 'DHAKA');
-
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'memos', m.docId);
-                    const save = (obj) => updateDoc(docRef, obj);
-
-                    card.querySelector('.m-name').onchange = (e) => save({ name: e.target.value.toUpperCase() });
-                    card.querySelector('.m-phone').onchange = (e) => save({ phone: e.target.value });
-                    card.querySelector('.m-addr').onchange = (e) => save({ addr: e.target.value });
-
-                    const tbody = card.querySelector('.m-rows');
-                    let sub = 0;
-                    (m.items || []).forEach((item, idx) => {
-                        const tr = document.createElement('tr');
-                        tr.className = 'line-item-row border-b border-black/5';
-                        tr.innerHTML = `
-                            <td class="py-4"><input class="uppercase" value="${item.desc}"></td>
-                            <td class="py-4 text-center"><input type="number" class="text-center" value="${item.qty}"></td>
-                            <td class="py-4 text-right flex items-center justify-end gap-3">
-                                <span class="no-print delete-item text-red-500"><i class="fa-solid fa-circle-minus"></i></span>
-                                <input type="number" class="text-right w-24" value="${item.price}">
-                            </td>
-                        `;
-                        const [d, q, p] = tr.querySelectorAll('input');
-                        d.onchange = (e) => { m.items[idx].desc = e.target.value; save({ items: m.items }); };
-                        q.onchange = (e) => { m.items[idx].qty = parseInt(e.target.value) || 0; save({ items: m.items }); };
-                        p.onchange = (e) => { m.items[idx].price = parseInt(e.target.value) || 0; save({ items: m.items }); };
-                        tr.querySelector('.delete-item').onclick = () => { m.items.splice(idx, 1); save({ items: m.items }); };
-                        sub += (item.qty * item.price);
-                        tbody.appendChild(tr);
-                    });
-
-                    setVal('.m-total', (sub + parseInt(m.ship)).toLocaleString());
-                    card.querySelector('.add-item-btn').onclick = () => {
-                        save({ items: [...m.items, { desc: 'NEW ITEM', qty: 1, price: 0 }] });
-                    };
-
-                    card.onclick = () => { if(activeDocId !== m.docId) { activeDocId = m.docId; this.render(); } };
-                    card.querySelector('.m-delete-btn').onclick = (e) => { 
-                        e.stopPropagation(); 
-                        if(confirm('Archive this manifest?')) deleteDoc(docRef); 
-                    };
-
-                    workspace.appendChild(card);
-
-                    const hi = document.createElement('div');
-                    hi.className = `glass p-4 cursor-pointer transition-all border-l-4 ${isActive ? 'border-amber-500 bg-white/10 opacity-100 scale-[1.02]' : 'border-transparent opacity-30 hover:opacity-60'}`;
-                    hi.innerHTML = `<div class="text-[9px] font-black opacity-30">${m.id}</div><div class="text-[11px] font-bold truncate uppercase">${m.name || 'DRAFT'}</div>`;
-                    hi.onclick = () => { activeDocId = m.docId; this.render(); };
-                    history.appendChild(hi);
-                });
-            }
+        // Global functions for inline events
+        window.updateQty = (id, delta) => {
+            const ref = db.ref(`inventory/${id}/qty`);
+            ref.transaction(current => (current || 0) + delta);
         };
 
-        // UI Handlers
-        document.getElementById('btn-new-memo').onclick = () => Engine.create();
-        document.querySelectorAll('[data-action]').forEach(btn => {
-            btn.onclick = () => {
-                if (!activeDocId) return;
-                const field = btn.dataset.action === 'setLifecycle' ? 'status' : 'ship';
-                const val = btn.dataset.state || parseInt(btn.dataset.val);
-                const update = { [field]: val };
-                if (btn.dataset.tag) update.tag = btn.dataset.tag;
-                updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', activeDocId), update);
-            };
-        });
+        window.deleteItem = (id) => {
+            if(confirm('Archive this item?')) db.ref(`inventory/${id}`).remove();
+        };
 
-        // Initialize Engine
-        Engine.boot();
+        window.onload = initApp;
     </script>
 </body>
 </html>
