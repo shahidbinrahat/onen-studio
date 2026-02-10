@@ -102,14 +102,13 @@
 <body>
 
     <div class="flex h-screen overflow-hidden no-print">
-        <!-- Sidebar -->
         <aside class="w-80 bg-[#050505] border-r border-white/5 p-8 flex flex-col gap-10 custom-scroll overflow-y-auto z-50">
             <div class="fade-in">
                 <div class="text-white font-black italic text-3xl tracking-tighter flex items-center gap-2">
                     ONEN<span class="text-amber-500">.</span>
                 </div>
                 <div id="sync-indicator" class="text-[10px] flex items-center gap-2 font-bold syncing mt-3">
-                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Handshaking...</span>
+                    <i class="fa-solid fa-circle text-[6px]"></i> <span>Initializing...</span>
                 </div>
             </div>
             
@@ -146,7 +145,6 @@
             </div>
         </aside>
 
-        <!-- Main Workspace -->
         <main class="flex-grow bg-[#0a0a0a] overflow-y-auto p-12 custom-scroll scroll-smooth">
             <div id="workspace" class="max-w-4xl mx-auto pb-48"></div>
             <div id="bar-controls" class="hidden fixed bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-6 bg-white/5 backdrop-blur-3xl px-8 py-4 rounded-3xl border border-white/10 shadow-2xl z-50 fade-in">
@@ -155,7 +153,6 @@
         </main>
     </div>
 
-    <!-- Template -->
     <template id="memo-tpl">
         <div class="memo-card group">
             <div class="flex justify-between border-b-[8px] border-black pb-6 mb-10">
@@ -224,9 +221,10 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-v2-logistics';
+        // Global State
         let db, auth, currentUser, activeDocId;
         let memos = [];
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-v2-logistics';
 
         const UI = {
             updateSync(state, label) {
@@ -245,53 +243,68 @@
         };
 
         const Engine = {
-            async start() {
-                // Wait for config with retries to avoid "invalid-api-key" race condition
-                const getConfig = () => {
+            async boot() {
+                // Pre-flight check for Firebase Config
+                const checkConfig = () => {
+                    if (typeof __firebase_config === 'undefined') return null;
                     try {
-                        return typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+                        const parsed = JSON.parse(__firebase_config);
+                        return (parsed && parsed.apiKey) ? parsed : null;
                     } catch(e) { return null; }
                 };
 
-                let config = getConfig();
-                let attempts = 0;
-                while (!config || !config.apiKey) {
-                    if (attempts > 10) {
-                        UI.updateSync('offline', 'Config Missing');
-                        return;
+                const waitForConfig = async () => {
+                    let config = checkConfig();
+                    let limit = 0;
+                    while (!config && limit < 50) { // Max 5 seconds
+                        await new Promise(r => setTimeout(r, 100));
+                        config = checkConfig();
+                        limit++;
                     }
-                    await new Promise(r => setTimeout(r, 200));
-                    config = getConfig();
-                    attempts++;
+                    return config;
+                };
+
+                const config = await waitForConfig();
+                if (!config) {
+                    UI.updateSync('offline', 'Configuration Failure');
+                    return;
                 }
 
-                // Initialize Firebase
-                const app = initializeApp(config);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                try {
+                    const app = initializeApp(config);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
 
-                onAuthStateChanged(auth, (user) => {
-                    if (user) {
-                        currentUser = user;
-                        UI.unlock();
-                        this.bindData();
-                    } else {
-                        this.authenticate();
-                    }
-                });
+                    onAuthStateChanged(auth, (user) => {
+                        if (user) {
+                            currentUser = user;
+                            UI.unlock();
+                            this.bindData();
+                        } else {
+                            this.authenticate();
+                        }
+                    });
+                } catch (e) {
+                    console.error("Firebase Init Failed", e);
+                    UI.updateSync('offline', 'Service Error');
+                }
             },
 
             async authenticate() {
                 try {
+                    // Always try custom token first if available
                     if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                         await signInWithCustomToken(auth, __initial_auth_token);
                     } else {
                         await signInAnonymously(auth);
                     }
                 } catch (e) {
-                    console.error("Auth Error", e);
-                    // Force retry anonymous if custom token fails
-                    signInAnonymously(auth);
+                    console.warn("Primary Auth Failed, forcing Anonymous", e);
+                    try {
+                        await signInAnonymously(auth);
+                    } catch(inner) {
+                        UI.updateSync('offline', 'Auth Failure');
+                    }
                 }
             },
 
@@ -304,7 +317,8 @@
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.render();
                 }, (err) => {
-                    UI.updateSync('offline', 'Sync Error');
+                    console.error("Snapshot error", err);
+                    UI.updateSync('offline', 'Sync Interrupted');
                 });
             },
 
@@ -337,14 +351,18 @@
                     const card = tpl.querySelector('.memo-card');
                     if (isActive) {
                         card.classList.add('active');
-                        // Update UI states
                         document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active-state'));
                         document.getElementById(`lifecycle-${m.status}`)?.classList.add('active-state');
                         document.getElementById(`ship-${m.tag}`)?.classList.add('active-state');
                     }
 
-                    // Field Binding
-                    const setVal = (sel, val) => { const el = card.querySelector(sel); if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = val; else el.innerText = val; };
+                    const setVal = (sel, val) => { 
+                        const el = card.querySelector(sel); 
+                        if(!el) return;
+                        if(el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.value = val; 
+                        else el.innerText = val; 
+                    };
+                    
                     setVal('.m-id', m.id);
                     setVal('.m-date', m.date);
                     setVal('.m-name', m.name || '');
@@ -360,7 +378,6 @@
                     card.querySelector('.m-phone').onchange = (e) => save({ phone: e.target.value });
                     card.querySelector('.m-addr').onchange = (e) => save({ addr: e.target.value });
 
-                    // Table Logic
                     const tbody = card.querySelector('.m-rows');
                     let sub = 0;
                     (m.items || []).forEach((item, idx) => {
@@ -389,11 +406,13 @@
                     };
 
                     card.onclick = () => { if(activeDocId !== m.docId) { activeDocId = m.docId; this.render(); } };
-                    card.querySelector('.m-delete-btn').onclick = (e) => { e.stopPropagation(); if(confirm('Archive?')) deleteDoc(docRef); };
+                    card.querySelector('.m-delete-btn').onclick = (e) => { 
+                        e.stopPropagation(); 
+                        if(confirm('Archive this manifest?')) deleteDoc(docRef); 
+                    };
 
                     workspace.appendChild(card);
 
-                    // History
                     const hi = document.createElement('div');
                     hi.className = `glass p-4 cursor-pointer transition-all border-l-4 ${isActive ? 'border-amber-500 bg-white/10 opacity-100 scale-[1.02]' : 'border-transparent opacity-30 hover:opacity-60'}`;
                     hi.innerHTML = `<div class="text-[9px] font-black opacity-30">${m.id}</div><div class="text-[11px] font-bold truncate uppercase">${m.name || 'DRAFT'}</div>`;
@@ -403,7 +422,7 @@
             }
         };
 
-        // UI Event Listeners
+        // UI Handlers
         document.getElementById('btn-new-memo').onclick = () => Engine.create();
         document.querySelectorAll('[data-action]').forEach(btn => {
             btn.onclick = () => {
@@ -416,7 +435,8 @@
             };
         });
 
-        Engine.start();
+        // Initialize Engine
+        Engine.boot();
     </script>
 </body>
 </html>
