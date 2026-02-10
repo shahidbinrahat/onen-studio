@@ -208,15 +208,9 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, setDoc, onSnapshot, deleteDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // GLOBAL CONFIGURATION WITH ERROR PROTECTION
-        let firebaseConfig = {};
-        try {
-            firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        } catch (e) {
-            console.error("Firebase config parsing error:", e);
-        }
-
-        const app = initializeApp(firebaseConfig);
+        // CONFIGURATION HANDLER
+        const config = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "" };
+        const app = initializeApp(config);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'onen-logistics-v2';
@@ -227,8 +221,9 @@
 
         const Core = {
             async start() {
-                this.updateSync('syncing', 'Connecting to Nexus...');
+                this.updateSync('syncing', 'Authenticating...');
                 
+                // RULE 3: Auth before Queries
                 const initAuth = async () => {
                     try {
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
@@ -237,8 +232,8 @@
                             await signInAnonymously(auth);
                         }
                     } catch (e) {
-                        console.error("Auth Exception:", e);
-                        this.updateSync('offline', 'Security Alert');
+                        console.error("Auth Failure:", e);
+                        this.updateSync('offline', 'Auth Error');
                     }
                 };
 
@@ -252,10 +247,9 @@
                     }
                 });
 
-                // Visibility monitor
                 setTimeout(() => {
                     if (!currentUser) document.getElementById('btn-retry-auth').classList.remove('hidden');
-                }, 10000);
+                }, 8000);
                 
                 document.getElementById('btn-retry-auth').onclick = () => location.reload();
             },
@@ -271,12 +265,12 @@
                 document.getElementById('ui-loader')?.classList.add('hidden');
                 document.getElementById('ui-controls')?.classList.remove('hidden');
                 document.getElementById('bar-controls')?.classList.remove('hidden');
-                this.updateSync('online', 'Nexus Linked');
+                this.updateSync('online', 'Nexus Online');
             },
 
             initSync() {
                 if (!currentUser) return;
-                // RULE 1: Strict Paths Required
+                // RULE 1: Strict Paths
                 const memoRef = collection(db, 'artifacts', appId, 'public', 'data', 'memos');
                 
                 onSnapshot(memoRef, (snap) => {
@@ -287,8 +281,8 @@
                     if (memos.length > 0 && !activeDocId) activeDocId = memos[0].docId;
                     this.render();
                 }, (err) => {
-                    console.error("Firestore error:", err);
-                    this.updateSync('offline', 'Data Locked');
+                    console.error("Sync error:", err);
+                    this.updateSync('offline', 'No Sync');
                 });
             },
 
@@ -301,6 +295,7 @@
                     name: '', phone: '', addr: '', ship: 60, tag: 'DHAKA',
                     status: 'PENDING', items: [{ desc: 'Standard Product', qty: 1, price: 0 }], createdAt: Date.now()
                 };
+                // RULE 1: Strict Paths
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'memos', id), newDoc);
                 activeDocId = id;
             },
@@ -312,7 +307,7 @@
                 history.innerHTML = '';
 
                 if (memos.length === 0) {
-                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">Terminal Ready. No active manifests.</div>`;
+                    workspace.innerHTML = `<div class="text-white/10 text-[10px] font-black uppercase text-center mt-32">Awaiting manifests...</div>`;
                     return;
                 }
 
@@ -366,7 +361,7 @@
 
                     card.querySelector('.m-total').innerText = (subtotal + parseInt(m.ship || 60)).toLocaleString();
                     card.querySelector('.add-item-btn').onclick = () => {
-                        const newItems = [...(m.items || []), { desc: 'New Line', qty: 1, price: 0 }];
+                        const newItems = [...(m.items || []), { desc: 'Product Line', qty: 1, price: 0 }];
                         updateDoc(memoRefDoc, { items: newItems });
                     };
 
@@ -381,7 +376,7 @@
                     const hi = document.createElement('div');
                     hi.className = `p-3 glass cursor-pointer transition-all border-l-4 ${isActive ? 'border-amber-500 bg-white/5 opacity-100' : 'border-transparent opacity-40'}`;
                     hi.innerHTML = `
-                        <div class="text-[9px] font-black truncate">${m.name || 'UNNAMED'}</div>
+                        <div class="text-[9px] font-black truncate">${m.name || 'DRAFT'}</div>
                         <div class="text-[7px] opacity-50 flex justify-between">
                             <span>${m.id}</span>
                             <span>৳${(subtotal + parseInt(m.ship)).toLocaleString()}</span>
@@ -399,7 +394,6 @@
             }
         };
 
-        // UI Event Listeners
         document.getElementById('btn-new-memo').onclick = () => Core.createMemo();
         
         document.querySelectorAll('[data-action]').forEach(btn => {
